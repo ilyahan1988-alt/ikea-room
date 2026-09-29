@@ -1,6 +1,6 @@
 "use strict";
 // ================= data =================
-const ROWS=[...window.CAT_RAW,...(window.CAT_RAW2||[])];
+const ROWS=[...window.CAT_RAW,...(window.CAT_RAW2||[]),...(window.CAT_RAW3||[])];
 const CAT=ROWS.map(r=>({id:r[0],slot:r[1],tags:r[2],n:r[3],v:r[4],p:r[5],u:r[6],fw:r[7],fd:r[8],hex:r[9],est:!!r[10]}));
 const BY=Object.fromEntries(CAT.map(x=>[x.id,x]));
 const nomW=x=>{const m=String(x.v).match(/(\d{2,3})x(\d{3})/);return m?+m[1]:0};
@@ -53,7 +53,7 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clea
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const overlap=(a,b)=>a.x<b.x+b.w-1&&a.x+a.w>b.x+1&&a.y<b.y+b.h-1&&a.y+a.h>b.y+1;
 const inRoom=(b,room)=>b.x>=-0.5&&b.y>=-0.5&&b.x+b.w<=room.W+0.5&&b.y+b.h<=room.D+0.5;
-function doorBox(room){const {W,D,door}=room;if(!door||door==='none')return null;const s=80,left=door[1]==='l',top=door[0]==='t';return{x:left?0:W-s,y:top?10:D-s-10,w:s,h:s}}
+function doorBox(room){const {W,D,door}=room;if(!door||door==='none')return null;if(room.type==='balcony'){const l=door[1]==='l';return{x:l?5:W-85,y:D-80,w:80,h:80}}const s=80,left=door[1]==='l',top=door[0]==='t';return{x:left?0:W-s,y:top?10:D-s-10,w:s,h:s}}
 function freeSpot(room,cands,taken){const d=doorBox(room);return cands.find(b=>inRoom(b,room)&&!taken.some(o=>overlap(b,o))&&!(d&&overlap(b,d)))||null}
 
 // ================= rooms =================
@@ -93,7 +93,38 @@ const ROOMS={
    {k:'towel',cat:'towel',he:'מגבות',g:'t'},{k:'bathmat',cat:'bathmat',he:'שטיחון',g:'t'},{k:'shower',cat:'shower',he:'וילון מקלחת',g:'t',on:r=>r.shower!=='glass'},{k:'rod',cat:'rod',he:'מוט לוילון',g:'d',on:r=>r.shower!=='glass'},
    {k:'bset',cat:'bset',he:'סט אביזרים',g:'d'},{k:'bhook',cat:'bhook',he:'מתלה / מדף מקלחת',g:'d'},{k:'bbox',cat:'bbox',he:'קופסאות',g:'d'},{k:'plant',cat:'plant',he:'צמח',g:'d'}],
   drop:['plant','bbox','bstool','btrolley','bhook','bset','bwall','tallcab','blight','bathmat','bshelf']},
+ office:{he:'חדר עבודה',en:'home office / computer corner',hero:[510,521,541,551],budget:2500,
+  wallA:'אורך הקיר של השולחן (ס״מ)',wallB:'עומק — מהשולחן לקיר ממול (ס״מ)',mainWall:'השולחן',oppWall:'הקיר ממול',plan:'קיר השולחן למטה.',
+  keeps:{desk:'שולחן',ochair:'כיסא',bookcase:'מדפים',lamps:'מנורות'},
+  slots:[{k:'desk',cat:'desk',he:'שולחן עבודה',g:'f'},{k:'ochair',cat:'ochair',he:'כיסא עבודה',g:'f'},{k:'bookcase',cat:'bookcase',he:'ספרייה / מדפים',g:'f'},
+   {k:'tlamp',cat:['tasklamp','table'],he:'מנורת שולחן',g:'l'},{k:'pendant',cat:'pendant',he:'מנורת תקרה',g:'l',on:r=>r.space==='room'},
+   {k:'blind',cat:'blind',he:'וילון',g:'t'},{k:'rug',cat:'rug',he:'שטיח',g:'t',on:r=>r.space==='room'},
+   {k:'deskacc',cat:'deskacc',he:'מעמד למסך / אביזר',g:'d'},{k:'art',cat:'art',he:'תמונה מעל השולחן',g:'d'},{k:'plant',cat:'plant',he:'צמח',g:'d'}],
+  drop:['plant','art','rug','deskacc','pendant','blind','bookcase','tlamp']},
+ kids:{he:'חדר ילדים',en:"child's bedroom",hero:[558,574,600,607],budget:4000,
+  wallA:'אורך הקיר של המיטה (ס״מ)',wallB:'עומק החדר (ס״מ)',mainWall:'המיטה',oppWall:'הקיר ממול',plan:'הקיר הראשי למטה.',
+  keeps:{kbed:'מיטה',kmattress:'מזרן',wardrobe:'ארון',kstorage:'אחסון צעצועים',desk:'שולחן'},
+  slots:[{k:'kbed',cat:'kbed',he:'מיטה',g:'f'},{k:'kmattress',cat:['kmattress','mattress'],he:'מזרן',g:'f'},{k:'wardrobe',cat:'wardrobe',he:'ארון בגדים',g:'f'},{k:'kstorage',cat:'kstorage',he:'אחסון צעצועים',g:'f'},
+   {k:'desk',cat:'desk',he:'שולחן כתיבה',g:'f',on:(r,s)=>r.age==='school'&&!(s.kbed&&s.kbed.id===564)},{k:'ktable',cat:'ktable',he:'שולחן ילדים',g:'f',on:r=>r.age!=='school'},
+   {k:'kchair',cat:'kchair',he:'כיסא',g:'f',on:(r,s)=>!(s.ktable&&s.ktable.id===580)&&!!(s.ktable||s.desk||(s.kbed&&s.kbed.id===564))},
+   {k:'klamp',cat:'klamp',he:'מנורת לילה / קיר',g:'l'},{k:'tlamp',cat:'tasklamp',he:'מנורת שולחן',g:'l',on:r=>r.age==='school'},{k:'pendant',cat:'pendant',he:'מנורת תקרה',g:'l'},
+   {k:'curtain',cat:'curtain',he:'וילון',g:'t'},{k:'krug',cat:'krug',he:'שטיח',g:'t'},{k:'duvet',cat:'duvet',he:'מצעים',g:'t',on:(r,s)=>{const b=itemOf(s,'kbed',r);return !b||b.keep||kNom(b)[0]>=80}},
+   {k:'ktextile',cat:'ktextile',he:'כרית / כילה',g:'t'},{k:'art',cat:'art',he:'תמונה',g:'d'}],
+  drop:['art','ktextile','krug','tlamp','pendant','duvet','curtain','kstorage','klamp']},
+ balcony:{he:'מרפסת',en:'balcony',hero:[614,620,640,647],budget:2500,
+  wallA:'אורך המרפסת — לאורך קיר הבית (ס״מ)',wallB:'עומק — מקיר הבית עד המעקה (ס״מ)',mainWall:'קיר הבית',oppWall:'המעקה',plan:'קיר הבית (עם הדלת) למטה, המעקה למעלה.',
+  keeps:{osofa:'ספה / ספסל',bchair:'כיסאות',otable:'שולחן',lamps:'תאורה'},
+  slots:[{k:'deck',cat:'deck',he:'ריצוף דק (בלי כלים)',g:'r',on:r=>r.floor==='deck'},
+   {k:'osofa',cat:'osofa',he:'ספה / ספסל',g:'f',on:r=>r.D>=90&&(r.bUses.has('coffee')||!r.bUses.has('dine'))},{k:'otable',cat:'otable',he:'שולחן',g:'f'},
+   {k:'bchair',cat:'ochair2',he:'כיסאות',g:'f',on:(r,s)=>seatsLeft(r,s)>0},{k:'lounger',cat:'lounger',he:'מיטת שיזוף',g:'f',on:r=>r.bUses.has('sun')},{k:'ostorage',cat:'ostorage',he:'אחסון',g:'f'},
+   {k:'olight',cat:'olight',he:'תאורה',g:'l'},{k:'olight2',cat:'olight',he:'תאורה נוספת',g:'l'},
+   {k:'orug',cat:'orug',he:'שטיח חוץ',g:'t'},{k:'ocushion',cat:'ocushion',he:'כריות לכיסאות',g:'t',on:(r,s)=>{const c=itemOf(s,'bchair',r);return !!c&&!c.keep&&!/Kuddarna|כרית/.test(c.v)}},
+   {k:'opot',cat:'opot',he:'כלים לצמחים',g:'d'},{k:'plant',cat:'plant',he:'צמח מלאכותי',g:'d'}],
+  drop:['plant','olight2','orug','ostorage','ocushion','opot','lounger','deck']},
 };
+const catHas=(d,x)=>!!x&&(Array.isArray(d.cat)?d.cat.includes(x.slot):x.slot===d.cat);
+const catName=d=>Array.isArray(d.cat)?d.cat[0]:d.cat;
+const baseKey=k=>k.replace(/_\d+$/,'').replace(/^bedside2$/,'bedside');
 const slotsOf=(room,sel)=>ROOMS[room.type].slots.filter(s=>!s.on||s.on(room,sel||{}));
 const SLOTDEF=type=>Object.fromEntries(ROOMS[type].slots.map(s=>[s.k,s]));
 
@@ -103,6 +134,9 @@ const PER_DEF={
  bedroom:{W:320,D:300,winWall:'left',winW:120,door:'tr',dir:'u',keep:[],budget:5000,sleepers:'couple'},
  kitchen:{W:260,D:300,winWall:'left',winW:100,door:'br',dir:'u',keep:[],budget:3000,seats:4,mode:'refresh'},
  bath:{W:200,D:180,winWall:'none',winW:60,door:'tl',dir:'u',keep:[],budget:2000,mode:'refresh',shower:'curtain'},
+ office:{W:240,D:260,winWall:'left',winW:100,door:'tr',dir:'u',keep:[],budget:2500,space:'room',work:'monitor'},
+ kids:{W:300,D:300,winWall:'tv',winW:120,door:'br',dir:'u',keep:[],budget:4000,age:'school',kids:1},
+ balcony:{W:300,D:150,winWall:'none',winW:60,door:'bl',dir:'u',keep:[],budget:2500,bUses:['coffee','plants'],bSeats:2,floor:'keep'},
 };
 let F=store.get('ikea-room-form2');
 if(!F){const old=store.get('ikea-room-form')||{};F={room:'living',renter:old.renter!==undefined?old.renter:true,likes:old.likes||['natural','warm'],dis:old.dis||[],per:{}};
@@ -125,7 +159,9 @@ function winOptions(t){const m=ROOMS[t].mainWall,o=ROOMS[t].oppWall;return `<opt
 function renderRoomForm(){
   const t=F.room,R=ROOMS[t],p=P();
   document.querySelectorAll('#roomTabs .chip').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.room===t)));
-  $('#heroTitle').innerHTML=({living:'הסלון שלך,',bedroom:'חדר השינה שלך,',kitchen:'המטבח שלך,',bath:'חדר הרחצה שלך,'})[t]+'<br>בעין של מעצב.';
+  $('#heroTitle').innerHTML=({living:'הסלון שלך,',bedroom:'חדר השינה שלך,',kitchen:'המטבח שלך,',bath:'חדר הרחצה שלך,',office:'פינת העבודה שלך,',kids:'חדר הילדים שלך,',balcony:'המרפסת שלך,'})[t]+'<br>בעין של מעצב.';
+  $('#winRow').classList.toggle('hidden',t==='balcony');const dsel=$('#door');if(!dsel._orig)dsel._orig=dsel.innerHTML;dsel.innerHTML=t==='balcony'?'<option value="bl">בצד שמאל של קיר הבית</option><option value="br">בצד ימין של קיר הבית</option><option value="none">לא רלוונטי</option>':dsel._orig;
+  if(t==='balcony'&&!['bl','br','none'].includes(p.door))p.door='bl';$('#dirLbl').textContent=t==='balcony'?'לאיזה כיוון המרפסת פונה':'לאיזה כיוון החלון פונה';
   document.querySelectorAll('.collage img').forEach((im,i)=>{im.src=img(R.hero[i])});
   $('#lblW').textContent=R.wallA;$('#lblD').textContent=R.wallB;
   $('#winWall').innerHTML=winOptions(t);
@@ -143,7 +179,13 @@ function renderExtras(){
   if(t==='bedroom')h+=`<label class="f"><span>מי ישן בחדר</span></label><div class="chips" id="sleepChips"></div>`;
   if(t==='kitchen')h+=`<label class="f"><span>סוג השינוי</span></label><div class="chips" id="modeChips"></div><p class="hint" id="modeHint"></p><label class="f"><span>כמה יושבים לאכול</span></label><div class="chips" id="seatChips"></div>`;
   if(t==='bath')h+=`<label class="f"><span>סוג השינוי</span></label><div class="chips" id="modeChips"></div><p class="hint" id="modeHint"></p><label class="f"><span>מקלחת</span></label><div class="chips" id="showerChips"></div>`;
+  if(t==='office')h+=`<label class="f"><span>איפה עובדים</span></label><div class="chips" id="spaceChips"></div><label class="f"><span>על מה עובדים</span></label><div class="chips" id="workChips"></div>`;
+  if(t==='kids')h+=`<label class="f"><span>גיל</span></label><div class="chips" id="ageChips"></div><label class="f"><span>כמה ילדים בחדר</span></label><div class="chips" id="kidsChips"></div>`;
+  if(t==='balcony')h+=`<label class="f"><span>בשביל מה המרפסת</span></label><div class="chips" id="bUseChips"></div><label class="f"><span>כמה יושבים</span></label><div class="chips" id="bSeatChips"></div><label class="f"><span>הרצפה</span></label><div class="chips" id="floorChips"></div>`;
   box.innerHTML=h;
+  if(t==='office'){chipGroup($('#spaceChips'),{room:'חדר עבודה',corner:'פינה בחדר אחר'},()=>p.space,false,k=>{p.space=k});chipGroup($('#workChips'),{laptop:'לפטופ',monitor:'מחשב עם מסך',gaming:'גיימינג'},()=>p.work,false,k=>{p.work=k})}
+  if(t==='kids'){chipGroup($('#ageChips'),{toddler:'2–5',school:'6–12'},()=>p.age,false,k=>{p.age=k});chipGroup($('#kidsChips'),{1:'ילד אחד',2:'שניים'},()=>p.kids,false,k=>{p.kids=+k})}
+  if(t==='balcony'){chipGroup($('#bUseChips'),{coffee:'קפה ומנוחה',dine:'ארוחות',plants:'צמחים',sun:'שיזוף'},()=>p.bUses,true,k=>{p.bUses=toggleIn(p.bUses,k)});chipGroup($('#bSeatChips'),{2:'2',4:'4'},()=>p.bSeats,false,k=>{p.bSeats=+k});chipGroup($('#floorChips'),{keep:'נשארת כמו שהיא',deck:'דק עץ חדש (בלי כלים)'},()=>p.floor,false,k=>{p.floor=k})}
   if(t==='living'){const tv=$('#tv');tv.value=p.tv;tv.onchange=()=>{p.tv=tv.value;saveForm()};chipGroup($('#useChips'),{tv:'טלוויזיה',host:'אירוח',read:'קריאה',relax:'מנוחה'},()=>p.uses,true,k=>{p.uses=toggleIn(p.uses,k)});
     for(const id of ['ksW','ksD']){const e=$('#'+id);if(e){e.value=p[id];e.oninput=()=>{p[id]=+e.value||0;saveForm()}}}}
   if(t==='bedroom')chipGroup($('#sleepChips'),{single:'אדם אחד',couple:'זוג'},()=>p.sleepers,false,k=>{p.sleepers=k});
@@ -155,6 +197,7 @@ function renderExtras(){
 function modeHint(){const e=$('#modeHint');if(!e)return;const p=P();const k=F.room==='kitchen';
   e.textContent=p.mode==='renovate'?(k?'כולל כיור וברז חדשים (צריך אינסטלטור). במטבח קצר עד 180 ס״מ — גם מטבחון שלם. ארונות מטבח מלאים מתכננים בכלי התכנון של איקאה.':'כולל ארון כיור עם כיור, ברז וארון מראה (צריך אינסטלטור וקידוחים).')+(F.renter?' שימו לב: סימנתם שכירות — כדאי לתאם עם בעל הדירה.':''):'רק מה שנכנס בלי כלי עבודה: אחסון, תאורה, טקסטיל ואביזרים.'}
 function initForm(){
+  const sn=$('#statN');if(sn)sn.textContent=CAT.filter(x=>!['kx','jchair'].includes(x.slot)).length;const sr=$('#statR');if(sr)sr.textContent=Object.keys(ROOMS).length;
   const rt=$('#roomTabs');rt.innerHTML='';
   for(const [k,R] of Object.entries(ROOMS)){const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.room=k;b.textContent=R.he;b.onclick=()=>{F.room=k;saveForm();renderRoomForm();$('#results').classList.add('hidden')};rt.appendChild(b)}
   $('#renter').checked=F.renter;$('#renter').onchange=e=>{F.renter=e.target.checked;saveForm();modeHint()};
@@ -167,16 +210,18 @@ function initForm(){
 
 // ================= room model =================
 function roomOf(){
-  const p=P(),t=F.room;const W=Math.max(120,p.W||280),D=Math.max(120,p.D||200);
+  const p=P(),t=F.room;const W=Math.max(t==='balcony'?80:120,p.W||280),D=Math.max(t==='balcony'?60:120,p.D||200);
   const r={type:t,W,D,winWall:p.winWall,winW:Math.max(40,p.winW||100),door:p.door,dir:p.dir,renter:F.renter,keep:new Set(p.keep),likes:F.likes,dis:F.dis,budget:p.budget,
-    tv:p.tv||'none',uses:new Set(p.uses||[]),sleepers:p.sleepers||'couple',seats:p.seats||4,mode:p.mode||'refresh',shower:p.shower||'curtain'};
+    tv:p.tv||'none',uses:new Set(p.uses||[]),sleepers:p.sleepers||'couple',seats:p.seats||4,mode:p.mode||'refresh',shower:p.shower||'curtain',
+    space:p.space||'room',work:p.work||'monitor',age:p.age||'school',kids:+p.kids||1,bUses:new Set(p.bUses||[]),bSeats:+p.bSeats||2,floor:p.floor||'keep'};
+  if(t==='balcony')r.winWall='none';
   r.tvd=t==='living'?(r.tv==='unit'?40:r.tv==='wall'?8:0):0;
   r.keptSofa=t==='living'&&r.keep.has('sofa')?{fw:Math.max(80,p.ksW||200),fd:Math.max(50,p.ksD||90)}:null;
   return r;
 }
-const KEPT_DIMS={arm:{fw:75,fd:80},coffee:{fw:90,fd:55},rug:{fw:230,fd:160},bed:{fw:166,fd:207},mattress:{fw:160,fd:200},wardrobe:{fw:100,fd:60},dresser:{fw:80,fd:48},dtable:{fw:120,fd:80},chair:{fw:45,fd:50}};
+const KEPT_DIMS={arm:{fw:75,fd:80},coffee:{fw:90,fd:55},rug:{fw:230,fd:160},bed:{fw:166,fd:207},mattress:{fw:160,fd:200},wardrobe:{fw:100,fd:60},dresser:{fw:80,fd:48},dtable:{fw:120,fd:80},chair:{fw:45,fd:50},desk:{fw:120,fd:60},ochair:{fw:65,fd:65},bookcase:{fw:80,fd:35},kbed:{fw:97,fd:207},kmattress:{fw:90,fd:200},kstorage:{fw:90,fd:45},osofa:{fw:120,fd:60},bchair:{fw:50,fd:55},otable:{fw:75,fd:65}};
 function keptItem(slot,room){const d=slot==='sofa'?room.keptSofa:KEPT_DIMS[slot]||{fw:0,fd:0};return{keep:true,id:'k-'+slot,slot,n:'שלך',v:'נשאר מהבית',p:0,fw:d.fw,fd:d.fd,hex:'#a8a39a',tags:'',cls:[]}}
-function keepsSlot(room,slot){if(room.keep.has(slot))return true;if(room.keep.has('lamps')&&['floor','table','pendant'].includes(slot))return room.type!=='living'||slot!=='pendant';if(room.keep.has('art')&&slot==='art')return true;return false}
+function keepsSlot(room,slot){if(room.keep.has(slot))return true;if(room.keep.has('lamps')&&['floor','table','pendant','tlamp','klamp','olight','olight2'].includes(slot))return room.type!=='living'||slot!=='pendant';if(room.keep.has('art')&&slot==='art')return true;return false}
 function itemOf(sel,slot,room){const e=sel[slot];if(!e)return null;if(e.keep)return keptItem(slot,room);return BY[e.id]||null}
 
 // ================= fit + qty =================
@@ -234,6 +279,7 @@ function fitCheck(x,slot,sel,room){
     case 'bhook':{if(room.renter&&x.id===434)bonus+=2;if(room.shower==='bath'&&x.id===436)bonus+=1;break}
     case 'rod':{if(room.renter)bonus+=0}
    }}
+  else if(EXTRA_ROOMS.includes(t)){const f=fitExtra(x,slot,sel,room);ok=f.ok;why=f.why;bonus=f.bonus}
   return{ok,why,bonus};
 }
 function tableSeats(x){if(!x)return 0;const round=x.fw===x.fd;if(round)return x.fw>=100?4:2;if(x.fw>=175)return 6;if(x.fw>=110)return 4;return 2}
@@ -246,6 +292,7 @@ function qtyFor(slot,x,sel,room){
   if(t==='kitchen'){if(slot==='chair'){const tb=itemOf(sel,'dtable',room);const cap=tb?(tb.keep?room.seats:tableSeats(tb)):room.seats;return Math.min(room.seats,cap)}
     if(slot==='tablelinen')return /פלייסמט/.test(x.v)?room.seats:1;if(slot==='ktowel')return /סט|יחידות/.test(x.v)?1:2;if(slot==='jars')return /סט/.test(x.v)?1:3;return 1}
   if(t==='bath'){if(slot==='towel')return 2;return 1}
+  if(EXTRA_ROOMS.includes(t))return qtyExtra(slot,x,sel,room);
   return 1;
 }
 
@@ -257,11 +304,11 @@ function scoreItem(x,slot,style,room,sel){
   if(slot==='cushion2'){const b=itemOf(sel,'cushion',room);if(b&&b.id===x.id)s-=20;if(['bold','black','green','wood'].some(c=>x.cls.includes(c)))s+=1.5}
   if(slot==='cushion'&&room.type==='living'&&['beige','white','grey'].some(c=>x.cls.includes(c)))s+=1;
   if(room.renter&&[434].includes(x.id))s+=1;
-  const heavy=['sofa','bed','wardrobe','vanity','kunit','mattress','dtable'].includes(slot)?1000:['arm','coffee','dresser','cart','mcab','tallcab','ksink','ktap','chair'].includes(slot)?500:250;
+  const heavy=['sofa','bed','wardrobe','vanity','kunit','mattress','dtable','desk','kbed','osofa'].includes(slot)?1000:['arm','coffee','dresser','cart','mcab','tallcab','ksink','ktap','chair','ochair','bookcase','kmattress','otable','bchair','lounger','kstorage','deck'].includes(slot)?500:250;
   s-=x.p*qtyFor(slot,x,sel,room)/heavy;
   const f=fitCheck(x,slot,sel,room);return{s:s+f.bonus,ok:f.ok,why:f.why};
 }
-function candidates(slot,style,room,sel){const d=SLOTDEF(room.type)[slot];return CAT.filter(x=>x.slot===d.cat).map(x=>Object.assign({x},scoreItem(x,slot,style,room,sel))).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s))}
+function candidates(slot,style,room,sel){const d=SLOTDEF(room.type)[slot];return CAT.filter(x=>catHas(d,x)).map(x=>Object.assign({x},scoreItem(x,slot,style,room,sel))).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s))}
 function chooseStyles(room){const sc={};for(const k in STYLES)sc[k]=STYLE_BASE[k];for(const l of room.likes)for(const [k,v] of Object.entries((LIKES[l]||{}).st||{}))sc[k]+=v;for(const d of room.dis)for(const [k,v] of Object.entries((DISLIKES[d]||{}).st||{}))sc[k]+=v;return Object.keys(sc).sort((a,b)=>sc[b]-sc[a]).slice(0,3)}
 function pick(slot,style,room,sel){const cs=candidates(slot,style,room,sel);return cs.find(c=>c.ok)||null}
 function buildSel(style,room){
@@ -282,7 +329,7 @@ function fitBudget(c,room){
     let best=null;
     for(const s of activeSlots(room,sel)){const e=sel[s.k];if(!e||e.keep||e.lock)continue;const cur=BY[e.id];const curS=scoreItem(cur,s.k,c.style,room,sel).s;
       for(const cd of candidates(s.k,c.style,room,sel)){if(!cd.ok||cd.x.p>=cur.p||cd.s<curS-tol)continue;const q=qtyFor(s.k,cd.x,sel,room);const save=cur.p*(e.qty||1)-cd.x.p*q;if(save<=0)continue;const ratio=save/(curS-cd.s+2);if(!best||ratio>best.ratio)best={slot:s.k,id:cd.x.id,q,ratio}}}
-    if(best){sel[best.slot]={id:best.id,qty:best.q};continue}
+    if(best){sel[best.slot]={id:best.id,qty:best.q};revalidate(c,room,best.slot,true);continue}
     const d=ROOMS[room.type].drop.find(k=>sel[k]&&!sel[k].keep&&!sel[k].lock);const g=d&&SLOTDEF(room.type)[d].g;if(!d||g==='l'||g==='f'){if(tol<40){tol=40;continue}if(!d)break}sel[d]=null;dropped.push(d);
   }
   c.dropped=dropped;return c;
@@ -290,7 +337,7 @@ function fitBudget(c,room){
 function localConcept(style,room){const c={style,sel:buildSel(style,room),src:'local',room:room.type};fitBudget(c,room);return c}
 
 // ================= layouts (cm; y=0 is the wall opposite the main wall) =================
-function layout(room,sel){return({living:layoutLiving,bedroom:layoutBedroom,kitchen:layoutKitchen,bath:layoutBath})[room.type](room,sel)}
+function layout(room,sel){return({living:layoutLiving,bedroom:layoutBedroom,kitchen:layoutKitchen,bath:layoutBath,office:layoutOffice,kids:layoutKids,balcony:layoutBalcony})[room.type](room,sel)}
 function layoutLiving(room,sel){
   const {W,D,tvd}=room;const P={},notes=[],fixed=[];const it=k=>itemOf(sel,k,room);
   const sofa=it('sofa'),coffee=it('coffee'),arm=it('arm'),side=it('side'),lamp=it('floor'),pouf=it('pouf'),rug=it('rug'),plant=it('plant'),mirror=it('mirror');
@@ -371,12 +418,187 @@ function layoutBath(room,sel){
   return{pos:P,notes,fixed,sink:{x:sx,w:sinkW,d:sinkD},toilet,shower};
 }
 
+// ================= office / kids / balcony =================
+const EXTRA_ROOMS=['office','kids','balcony'];
+const BUNK=[561,562],LOFT=[563,564],JUNIOR=[555,556,557,566],TODDLER_CH=[585,587,592],STUDENT_CH=[593,594,595];
+function kNom(x){if(!x||x.keep)return[90,200];const m=String(x.v).match(/(\d{2,3})x(\d{3})/);return m?[+m[1],+m[2]]:[x.fw,x.fd]}
+const sofaSeats=x=>!x?0:x.keep?2:x.fw>=200?3:x.fw>=100?2:1;
+function seatsLeft(r,s){return Math.max(0,r.bSeats-sofaSeats(itemOf(s,'osofa',r)))}
+function wallSpots(room,len,dep,cl,walls){const {W,D}=room;const out=[];
+  for(const w of walls||['b','t','l','r']){const span=w==='t'||w==='b'?W:D;if(span-4<len)continue;
+    for(const t of [0,1,0.5,0.25,0.75]){const p=2+(span-4-len)*t;
+      if(w==='t')out.push({x:p,y:2,w:len,h:dep,cl:cl?{x:p,y:2+dep,w:len,h:cl}:null,wall:w});
+      if(w==='b')out.push({x:p,y:D-dep-2,w:len,h:dep,cl:cl?{x:p,y:D-dep-2-cl,w:len,h:cl}:null,wall:w});
+      if(w==='l')out.push({x:2,y:p,w:dep,h:len,cl:cl?{x:2+dep,y:p,w:cl,h:len}:null,wall:w,rot:1});
+      if(w==='r')out.push({x:W-dep-2,y:p,w:dep,h:len,cl:cl?{x:W-dep-2-cl,y:p,w:cl,h:len}:null,wall:w,rot:1})}}
+  return out}
+const boxesOf=P=>Object.values(P).filter(b=>b&&typeof b==='object'&&b.x!==undefined&&!b.under);
+function placeFree(room,P,extra,cands){const d=doorBox(room);const boxes=boxesOf(P).concat(extra||[]);const cls=Object.values(P).filter(b=>b&&b.cl).map(b=>b.cl);
+  return cands.find(b=>inRoom(b,room)&&(!b.cl||inRoom(b.cl,room))&&!boxes.some(o=>overlap(b,o)||(b.cl&&overlap(b.cl,o)))&&!cls.some(o=>overlap(b,o))&&!(d&&(overlap(b,d)||(b.cl&&overlap(b.cl,d)))))||null}
+function farFrom(c,d){if(!d)return c;const cx=d.x+d.w/2,cy=d.y+d.h/2;const walls=[...new Set(c.map(b=>b.wall||''))];const dist=b=>Math.hypot(b.x+b.w/2-cx,b.y+b.h/2-cy);
+  return c.slice().sort((a,b)=>(walls.indexOf(a.wall||'')-walls.indexOf(b.wall||''))||(dist(b)-dist(a)))}
+function chairBy(d,cw,cd,off){off=off||0;const w=d.wall;
+  if(w==='b')return{x:d.x+d.w/2-cw/2+off,y:d.y-cd-2,w:cw,h:cd};if(w==='t')return{x:d.x+d.w/2-cw/2+off,y:d.y+d.h+2,w:cw,h:cd};
+  if(w==='l')return{x:d.x+d.w+2,y:d.y+d.h/2-cw/2+off,w:cd,h:cw};return{x:d.x-cd-2,y:d.y+d.h/2-cw/2+off,w:cd,h:cw}}
+function rugAround(room,rug,box,m){if(!rug||!box)return null;const {W,D}=room;m=m||4;const L=Math.max(rug.fw,rug.fd),S=Math.min(rug.fw,rug.fd);
+  const along=box.w>=box.h;let rw=along?L:S,rh=along?S:L;if(rw>W-2*m||rh>D-2*m){[rw,rh]=[rh,rw]}if(rw>W-2*m||rh>D-2*m)return null;
+  const cx=box.x+box.w/2,cy=box.y+box.h/2;return{x:Math.min(Math.max(m,cx-rw/2),W-m-rw),y:Math.min(Math.max(m,cy-rh/2),D-m-rh),w:rw,h:rh,under:2}}
+function bbox(bs){bs=bs.filter(Boolean);if(!bs.length)return null;const x=Math.min(...bs.map(b=>b.x)),y=Math.min(...bs.map(b=>b.y));return{x,y,w:Math.max(...bs.map(b=>b.x+b.w))-x,h:Math.max(...bs.map(b=>b.y+b.h))-y}}
+function blindFit(x,room){if(room.winWall==='none')return{ok:false,why:'אין חלון',bonus:0};const n=Math.ceil(room.winW/140),need=room.winW/n;if(x.fw<need-2)return{ok:false,why:'צר מהחלון',bonus:0};return{ok:true,why:'',bonus:-(x.fw-need)/10}}
+const curtainQty=(x,room)=>{const fab=/זוג/.test(x.v)?x.fw*2:x.fw;return Math.max(1,Math.ceil(room.winW*1.8/fab))};
+const WIN_WALL={sofa:'b',tv:'t',left:'l',right:'r'},OPP={b:'t',t:'b',l:'r',r:'l'};
+
+function fitExtra(x,slot,sel,room){const t=room.type,{W,D}=room;let ok=true,why='',bonus=0;const lay=(k,v)=>layout(room,Object.assign({},sel,{[k]:v||{id:x.id}})).pos;
+  if(t==='office')switch(slot){
+    case 'desk':{if(!lay('desk').desk){ok=false;why='אין קיר פנוי עם 90 ס״מ לכיסא';break}
+      const tg=room.space==='corner'?100:room.work==='gaming'?150:130;bonus-=Math.abs(x.fw-tg)/20;
+      if(room.work!=='laptop'&&x.fd<60){bonus-=4;why='רדוד למסך (מומלץ 60+)'}if(room.work==='gaming'&&x.id===512)bonus+=2;if(room.work==='laptop'&&x.fw<=105)bonus+=1;break}
+    case 'ochair':{if(STUDENT_CH.includes(x.id)||[527,529].includes(x.id)){bonus-=5;why='כיסא לילדים'}const dk=itemOf(sel,'desk',room);if(dk&&!dk.keep&&dk.fw<80&&x.fw>65)bonus-=1;if(room.work==='gaming'&&[515,517,522].includes(x.id))bonus+=1;break}
+    case 'bookcase':{if(!lay('bookcase').bookcase){ok=false;why='אין קיר פנוי';break}if(room.space==='corner'&&x.fw>80)bonus-=2;break}
+    case 'tlamp':{if(x.slot==='tasklamp')bonus+=6;break}
+    case 'deskacc':{const mon=/מסך/.test(x.v),lap=/נייד/.test(x.v);if(room.work==='laptop')bonus+=lap?3:mon?-1:0;else bonus+=mon?2:0;if(room.work==='gaming'&&x.id===532)bonus+=2;if(x.id===538)bonus-=1;break}
+    case 'pendant':{bonus-=Math.abs(x.fw-(W+D)/12)/7;break}
+    case 'blind':return blindFit(x,room);
+    case 'rug':{if(Math.min(x.fw,x.fd)>Math.min(W,D)-10||Math.max(x.fw,x.fd)>Math.max(W,D)-10){ok=false;why='גדול מהחדר';break}bonus-=Math.abs(x.fw-180)/40;break}
+    case 'art':{const w=x.fw*artQty(x,120);if(w>140)bonus-=3;bonus-=Math.abs(w-80)/40;break}
+  }
+  else if(t==='kids'){const bed=itemOf(sel,'kbed',room);switch(slot){
+    case 'kbed':{if(room.age==='toddler'&&LOFT.includes(x.id)){ok=false;why='מיטת גלריה — מגיל 6';break}
+      if(room.age==='school'&&[556,557].includes(x.id)){ok=false;why='קטנה לגיל 6+';break}
+      if(room.kids===2&&!BUNK.includes(x.id)){ok=false;why='לשני ילדים — מיטת קומתיים';break}
+      if(room.kids===1&&BUNK.includes(x.id)){ok=false;why='מיטת קומתיים — לשני ילדים';break}
+      if(!lay('kbed').kbed){ok=false;why='אין קיר פנוי באורך המיטה';break}
+      if(room.age==='toddler'){if(JUNIOR.includes(x.id)||x.id===565)bonus+=2;if(BUNK.includes(x.id)&&room.kids===2){bonus-=2;why='קומה עליונה — מגיל 6'}}
+      if(room.age==='school'&&room.kids===1&&LOFT.includes(x.id))bonus+=W*D<90000?2:-1;break}
+    case 'kmattress':{const [bw,bl]=kNom(bed);if(x.slot==='mattress'&&x.fw>90){ok=false;why='מזרן זוגי';break}
+      if(x.fw!==bw||x.fd!==bl){ok=false;why='לא בגודל המיטה';break}
+      if(bed&&!bed.keep&&[555,566].includes(bed.id)&&x.slot!=='kmattress'){ok=false;why='למיטה מתארכת צריך מזרן מתקפל';break}
+      if(bed&&!bed.keep&&(BUNK.includes(bed.id)||LOFT.includes(bed.id))&&/קפיצים/.test(x.v)){bonus-=2;why='עבה למיטת קומתיים'}if(x.slot==='kmattress')bonus+=1;break}
+    case 'wardrobe':{if(!lay('wardrobe').wardrobe){ok=false;why='אין קיר פנוי עם מקום לפתיחה';break}bonus-=Math.abs(x.fw-(room.kids===2?117:80))/30;if(x.fw>150)bonus-=2;break}
+    case 'kstorage':{if(x.fd>=25&&!lay('kstorage').kstorage){ok=false;why='אין מקום פנוי';break}if(room.age==='toddler'&&[571,572,573].includes(x.id))bonus+=1.5;if(room.age==='school'&&[574,575,576].includes(x.id))bonus+=1;break}
+    case 'desk':{if(!lay('desk').desk){ok=false;why='אין קיר פנוי עם מקום לכיסא';break}bonus-=Math.abs(x.fw-(room.kids===2?120:100))/20;if(room.kids===2&&x.fw<118){ok=false;why='צר לשני ילדים';break}if(x.id===512)bonus-=4;break}
+    case 'ktable':{if(!lay('ktable').ktable){ok=false;why='אין מקום פנוי';break}break}
+    case 'kchair':{if(!(room.age==='school'?STUDENT_CH:TODDLER_CH).includes(x.id)){ok=false;why=room.age==='school'?'לא כיסא תלמיד':'לא בגובה שולחן ילדים'}break}
+    case 'klamp':{if(room.age==='toddler'&&[596,601].includes(x.id))bonus+=1;break}
+    case 'pendant':{bonus-=Math.abs(x.fw-(W+D)/12)/7;break}
+    case 'curtain':{if(room.winWall==='none'){ok=false;why='אין חלון';break}if(/האפלה|מחשיך/.test(x.v))bonus+=1.5;break}
+    case 'krug':{if(Math.max(x.fw,x.fd)>Math.max(W,D)-60||Math.min(x.fw,x.fd)>Math.min(W,D)-60){ok=false;why='גדול לחדר';break}if(W*D>=80000&&x.fw>=130)bonus+=1;break}
+    case 'duvet':{if(x.fw>=200){ok=false;why='גדול למיטת יחיד'}break}
+    case 'ktextile':{if(x.id===611&&bed&&!bed.keep&&(BUNK.includes(bed.id)||LOFT.includes(bed.id)))bonus-=2;break}
+    case 'art':{bonus-=Math.abs(x.fw-60)/40;break}
+  }}
+  else if(t==='balcony')switch(slot){
+    case 'osofa':{if(!lay('osofa').osofa){ok=false;why='אין מקום בלי לחסום את המעבר';break}if(D-x.fd<80)bonus-=D-x.fd<70?6:2;bonus-=Math.abs(x.fw-Math.min(W*0.5,160))/40;if(room.bSeats>=4&&x.fw>=150)bonus+=1;break}
+    case 'otable':{const dine=room.bUses.has('dine'),low=[632,633].includes(x.id);if(dine&&low){ok=false;why='נמוך לארוחות';break}
+      if(!lay('otable').otable){ok=false;why='אין מקום פנוי';break}
+      if(dine){if(tableSeats(x)<room.bSeats){bonus-=4;why='פחות מ-'+room.bSeats+' מקומות'}}else{if(itemOf(sel,'osofa',room)&&low)bonus+=2;if(x.fw>110)bonus-=2}
+      if(D<120&&[629,631].includes(x.id))bonus+=2;break}
+    case 'bchair':{const n=qtyExtra('bchair',x,sel,room);const P2=lay('bchair',{id:x.id,qty:n});if(Object.keys(P2).filter(k=>baseKey(k)==='bchair').length<n){ok=false;why='אין מקום ל-'+n+' כיסאות';break}
+      const dine=room.bUses.has('dine'),lounge=[620,626].includes(x.id);if(dine&&lounge){bonus-=3;why='נמוך לשולחן אוכל'}if(!dine&&lounge)bonus+=1;if(D<120&&/מתקפל/.test(x.v))bonus+=1.5;break}
+    case 'lounger':{if(!lay('lounger').lounger){ok=false;why='אין מקום באורך 2 מטר'}break}
+    case 'ostorage':{if(!lay('ostorage').ostorage){ok=false;why='אין מקום פנוי'}break}
+    case 'orug':{const L=Math.max(x.fw,x.fd),S=Math.min(x.fw,x.fd);if(!((L<=W-8&&S<=D-8)||(S<=W-8&&L<=D-8))){ok=false;why='גדול מהמרפסת';break}bonus-=Math.abs(L*S-W*D*0.45)/8000;break}
+    case 'ocushion':{const c=itemOf(sel,'bchair',room);if(c){if(x.fw!==(c.fw<48?44:50))bonus-=1.5}break}
+    case 'olight2':{const a=itemOf(sel,'olight',room);if(a&&a.id===x.id)bonus-=20;if(a&&/שרשרת/.test(a.v)===/שרשרת/.test(x.v))bonus-=2;break}
+    case 'opot':{if(room.bUses.has('plants')&&x.id===657)bonus+=1;break}
+  }
+  return{ok,why,bonus}}
+
+function qtyExtra(slot,x,sel,room){const t=room.type;
+  if(t==='office')return slot==='blind'?Math.ceil(room.winW/140):1;
+  if(t==='kids'){if(slot==='kmattress'){const b=itemOf(sel,'kbed',room);return b&&!b.keep&&BUNK.includes(b.id)?2:1}
+    if(slot==='kchair')return room.age==='toddler'?2:room.kids;if(slot==='duvet')return room.kids;if(slot==='curtain')return curtainQty(x,room);return 1}
+  if(t==='balcony'){if(slot==='bchair')return Math.min(6,seatsLeft(room,sel));if(slot==='ocushion'){const e=sel.bchair;return e?(e.qty||1):1}
+    if(slot==='deck')return Math.ceil(room.W*room.D/8100);if(slot==='opot')return x.fw>60?1:room.bUses.has('plants')?3:2;return 1}
+  return 1}
+
+function layoutOffice(room,sel){const P={},notes=[],fixed=[];const it=k=>itemOf(sel,k,room);
+  const dk=it('desk'),ch=it('ochair'),bc=it('bookcase'),plant=it('plant');
+  if(dk){const o=placeFree(room,P,[],wallSpots(room,dk.fw,dk.fd,90,['b','l','r','t']));if(o){P.desk=o;if(ch)P.ochair=chairBy(o,Math.min(ch.fw,70),Math.min(ch.fd,70))}}
+  if(bc){const o=placeFree(room,P,[],wallSpots(room,bc.fw,bc.fd,50,['l','r','t','b']));if(o)P.bookcase=o}
+  const rg=rugAround(room,it('rug'),P.ochair?bbox([P.ochair,P.desk]):null);if(rg)P.rug=rg;
+  if(plant){const s=plant.fw||40;const o=placeFree(room,P,[],[...wallSpots(room,s,s,0,['t','b','l','r'])].map(b=>Object.assign(b,{round:1})));if(o)P.plant=o}
+  return{pos:P,notes,fixed}}
+
+function layoutKids(room,sel){const {W,D}=room;const P={},notes=[],fixed=[];const it=k=>itemOf(sel,k,room);
+  const bed=it('kbed');if(bed){const L=Math.max(bed.fw,bed.fd),S=Math.min(bed.fw,bed.fd);const o=placeFree(room,P,[],wallSpots(room,L,S,45,['b','l','r','t']));if(o)P.kbed=o}
+  const wd=it('wardrobe');if(wd){const cl=wd.keep?70:[236,241].includes(wd.id)?55:Math.min(90,Math.max(60,wd.fw/(/3 דלתות/.test(wd.v)?3:2)+20));const o=placeFree(room,P,[],wallSpots(room,wd.fw,wd.fd,cl,['t','l','r','b']));if(o)P.wardrobe=o}
+  const ks=it('kstorage');if(ks&&(ks.keep||ks.fd>=25)){const o=placeFree(room,P,[],wallSpots(room,ks.fw,ks.fd,50,['l','r','t','b']));if(o)P.kstorage=o}
+  const n=(sel.kchair&&sel.kchair.qty)||1;const chs=it('kchair');
+  const dk=it('desk');if(dk){const o=placeFree(room,P,[],wallSpots(room,dk.fw,dk.fd,85,['t','l','r','b']));if(o){P.desk=o;if(chs){const off=n>1?dk.fw/4:0;P.kchair=chairBy(o,chs.fw,chs.fd,-off);if(n>1)P.kchair_1=chairBy(o,chs.fw,chs.fd,off)}}}
+  const kt=it('ktable');if(kt){const tw=kt.id===580?95:kt.fw,th=kt.id===580?70:kt.fd,withCh=kt.id!==580&&chs,ext=kt.id!==580?42:0;
+    const a=placeFree(room,P,[],wallSpots(room,tw+2*ext,th,45,['t','l','r','b']));
+    if(a){const hor=!a.rot;P.ktable=hor?{x:a.x+ext,y:a.y,w:tw,h:th,round:kt.id===581}:{x:a.x,y:a.y+ext,w:th,h:tw,round:kt.id===581};P.ktable.cl=a.cl;
+      if(withCh){const cw=chs.fw,cd=chs.fd;const c1=hor?{x:a.x,y:a.y+th/2-cw/2,w:cd,h:cw}:{x:a.x+th/2-cw/2,y:a.y,w:cw,h:cd};const c2=hor?{x:a.x+a.w-cd,y:c1.y,w:cd,h:cw}:{x:c1.x,y:a.y+a.h-cd,w:cw,h:cd};if(!hor){c1.x=a.x+a.w/2-cw/2;c2.x=c1.x}P.kchair=c1;if(n>1)P.kchair_1=c2}}}
+  const rug=it('krug');if(rug){const r=rugAround(room,rug,{x:W*0.3,y:D*0.3,w:W*0.4,h:D*0.4},20);if(r)P.krug=r}
+  return{pos:P,notes,fixed}}
+
+function layoutBalcony(room,sel){const {W,D}=room;const P={},notes=[],fixed=[];const it=k=>itemOf(sel,k,room);
+  const dB=doorBox(room);let corr=null;if(dB){const left=dB.x<W/2;corr={x:left?0:W-90,y:0,w:90,h:D,label:'מעבר',zone:1};fixed.push(corr)}const ex=corr?[corr]:[];
+  const so=it('osofa'),tb=it('otable'),ch=it('bchair'),lo=it('lounger'),st=it('ostorage');
+  if(so){const o=placeFree(room,P,ex,farFrom(wallSpots(room,so.fw,so.fd,0,['b','l','r']),dB));if(o)P.osofa=o}
+  if(tb){const tw=tb.fw,th=tb.fd;let c=[];const s=P.osofa;
+    if(s){const g=so.fd<=45?6:30;if(s.wall==='b')c.push({x:s.x+s.w/2-tw/2,y:s.y-g-th,w:tw,h:th});if(s.wall==='l')c.push({x:s.x+s.w+g,y:s.y+s.h/2-tw/2,w:th,h:tw});if(s.wall==='r')c.push({x:s.x-g-th,y:s.y+s.h/2-tw/2,w:th,h:tw})}
+    const mids=[0.5,0.3,0.7,0.15,0.85].map(f=>({x:(W-tw)*f,y:(D-th)/2,w:tw,h:th,wall:'m'}));
+    c=c.concat(D<130?farFrom(wallSpots(room,tw,th,0,['t']),dB).concat(farFrom(mids,dB)):farFrom(mids,dB).concat(farFrom(wallSpots(room,tw,th,0,['t']),dB)));
+    const o=placeFree(room,P,ex,c);if(o)P.otable=o}
+  if(ch){const n=(sel.bchair&&sel.bchair.qty)||seatsLeft(room,sel)||1;const cw=Math.max(ch.fw,36),cd=Math.max(ch.fd,40);const t=P.otable;let c=[];
+    if(t){const two=t.w>=2*cw+8;const xs=two?[t.x+t.w/4-cw/2,t.x+3*t.w/4-cw/2]:[t.x+t.w/2-cw/2];
+      for(const x of xs)c.push({x,y:t.y-cd-4,w:cw,h:cd});if(!P.osofa)for(const x of xs)c.push({x,y:t.y+t.h+4,w:cw,h:cd});
+      c.push({x:t.x-cd-4,y:t.y+t.h/2-cw/2,w:cd,h:cw},{x:t.x+t.w+4,y:t.y+t.h/2-cw/2,w:cd,h:cw})}
+    c=c.concat(farFrom(wallSpots(room,cw,cd,0,['b','l','r']),dB));
+    let k=0;for(const b of c){if(k>=n)break;if(placeFree(room,P,ex,[b])){P[k?'bchair_'+k:'bchair']=b;k++}}}
+  if(lo){const L=Math.max(lo.fw,lo.fd),S=Math.min(lo.fw,lo.fd);const o=placeFree(room,P,ex,farFrom(wallSpots(room,L,S,0,['t','l','r','b']),dB));if(o)P.lounger=o}
+  if(st){const o=placeFree(room,P,ex,farFrom(wallSpots(room,st.fw,st.fd,40,['l','r','b']),dB));if(o)P.ostorage=o}
+  const seat=bbox(['osofa','otable','bchair','bchair_1','bchair_2','bchair_3'].map(k=>P[k]));const rg=rugAround(room,it('orug'),seat);if(rg&&!(corr&&overlap(rg,corr)&&rg.w>W-80))P.orug=rg;
+  return{pos:P,notes,fixed,corr}}
+
+function checksOffice(c,room,L){const P=L.pos,out=[];const {W,D}=room;const it=k=>itemOf(c.sel,k,room);const dk=it('desk'),ch=it('ochair');
+  if(!dk){out.push(['bad','אין שולחן בעיצוב.']);return out}
+  if(!P.desk){out.push(['bad','אין קיר פנוי לשולחן עם 90 ס״מ לכיסא.']);return out}
+  const d=P.desk;const back=Math.round(d.wall==='b'?d.y:d.wall==='t'?D-d.y-d.h:d.wall==='l'?W-d.x-d.w:d.x);
+  out.push(back>=100?['ok','מאחורי השולחן נשארים '+back+' ס״מ — מקום לכיסא ולמעבר.']:['warn','מאחורי השולחן '+back+' ס״מ — מספיק לכיסא, המעבר צר.']);
+  if(d.wall!=='b')out.push(['ok','השולחן עבר ל'+(d.wall==='t'?'קיר ממול':'קיר הצד')+' — שם יש מקום לכיסא.']);
+  if(room.work!=='laptop')out.push(dk.fd>=60?['ok','עומק השולחן '+dk.fd+' ס״מ — המסך במרחק זרוע (50–70 ס״מ).']:['warn','עומק השולחן '+dk.fd+' ס״מ — המסך קרוב מדי לעיניים. עדיף שולחן בעומק 60+.']);
+  if(ch&&!ch.keep&&(STUDENT_CH.includes(ch.id)||[527,529].includes(ch.id)))out.push(['warn','נבחר כיסא תלמיד — למבוגר עדיף כיסא משרדי עם כוונון.']);
+  if(room.winWall!=='none'){const ww=WIN_WALL[room.winWall];out.push(ww===d.wall?['warn','החלון מול העיניים — סנוור ביום. וילון מסנן עוזר.']:ww===OPP[d.wall]?['warn','החלון מאחורי הגב — השתקפות על המסך. וילון, או שולחן על קיר הצד.']:['ok','האור מגיע מהצד — המיקום הכי טוב לעבודה מול מסך.'])}
+  out.push(['ok','ארגונומיה: מרפקים בגובה השולחן, קצה המסך העליון בגובה העיניים, כפות רגליים על הרצפה.']);
+  if(c.sel.bookcase&&!c.sel.bookcase.keep)out.push(P.bookcase?['ok','הספרייה על קיר פנוי עם גישה נוחה. לעגן לקיר.']:['bad','אין קיר פנוי לספרייה.']);
+  if(room.space==='corner')out.push(c.sel.tlamp?['ok','מנורת שולחן — אור עבודה ממוקד, בצד הנגדי ליד הכותבת.']:['warn','אין מנורת שולחן — בפינת עבודה זה מקור האור העיקרי.']);else lightCheck(c,out,['tlamp','pendant'],2);
+  return out}
+function playArea(room,P){const {W,D}=room;const bx=boxesOf(P);let n=0;for(let x=5;x<W;x+=10)for(let y=5;y<D;y+=10)if(!bx.some(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h))n++;return n/100}
+function checksKids(c,room,L){const P=L.pos,out=[];const it=k=>itemOf(c.sel,k,room);const bed=it('kbed');
+  if(!bed){out.push(['bad','אין מיטה בעיצוב.']);return out}
+  out.push(P.kbed?['ok','המיטה לאורך הקיר — מרכז החדר נשאר פנוי.']:['bad','אין קיר פנוי באורך המיטה.']);
+  const m=it('kmattress');if(m&&!m.keep&&!bed.keep){const [bw,bl]=kNom(bed);out.push(m.fw===bw&&m.fd===bl?['ok','המזרן '+m.fw+'x'+m.fd+' מתאים למיטה'+((c.sel.kmattress.qty||1)>1?' (×2, לשתי הקומות).':'.')]:['bad','המזרן לא בגודל המיטה.'])}
+  if(!bed.keep&&(BUNK.includes(bed.id)||LOFT.includes(bed.id)))out.push(['warn','בקומה העליונה — מגיל 6 בלבד. מזרן דק (עד 16 ס״מ) כדי שהמעקה יישאר גבוה מספיק.']);
+  if(!bed.keep&&[555,566].includes(bed.id))out.push(['ok','מיטה מתארכת — גדלה עם הילד עד 200 ס״מ.']);
+  const free=playArea(room,P);out.push(free>=2?['ok','שטח פנוי למשחק: כ-'+free.toFixed(1)+' מ״ר.']:free>=1?['warn','שטח פנוי למשחק: רק כ-'+free.toFixed(1)+' מ״ר.']:['bad','כמעט אין רצפה פנויה למשחק.']);
+  if(c.sel.wardrobe&&!c.sel.wardrobe.keep&&!P.wardrobe)out.push(['bad','אין קיר פנוי לארון.']);
+  if(c.sel.desk&&!c.sel.desk.keep)out.push(P.desk?['ok','שולחן הכתיבה על קיר, עם מקום לכיסא.']:['bad','אין מקום לשולחן כתיבה.']);
+  if(['wardrobe','kstorage'].some(k=>c.sel[k]&&!c.sel[k].keep))out.push(['warn','בטיחות: לעגן לקיר את הארון והשידות — ערכת העיגון באריזה. רהיט לא מעוגן יכול ליפול על ילד שמטפס.']);
+  if(room.winWall!=='none'&&P.kbed&&P.kbed.wall===WIN_WALL[room.winWall])out.push(['warn','המיטה צמודה לקיר החלון — ודאו שיש מעצור לחלון ושאין חוטי וילון בהישג יד.']);
+  if(room.age==='toddler')out.push(['ok','בגיל הזה: אחסון נמוך שהילד מגיע אליו לבד, ומגיני שקעים ופינות.']);
+  lightCheck(c,out,['pendant','klamp','tlamp'],2);return out}
+function checksBalcony(c,room,L){const P=L.pos,out=[];const {W,D}=room;const it=k=>itemOf(c.sel,k,room);
+  if(L.corr&&!boxesOf(P).some(b=>overlap(b,L.corr)))out.push(['ok','מעבר חופשי של 90 ס״מ מהדלת עד המעקה.']);
+  const so=it('osofa');const nCh=Object.keys(P).filter(k=>baseKey(k)==='bchair').length;const seats=(so&&P.osofa?sofaSeats(so):0)+nCh;
+  out.push(seats>=room.bSeats?['ok','מקומות ישיבה: '+seats+' (ביקשתם '+room.bSeats+').']:['warn','מקומות ישיבה: '+seats+' בלבד (ביקשתם '+room.bSeats+').']);
+  if(D<110)out.push(['warn','מרפסת צרה ('+D+' ס״מ) — עדיפים רהיטים מתקפלים ושולחן צמוד למעקה.']);
+  const rail=Object.entries(P).filter(([k,b])=>b&&!b.under&&b.y<25&&['osofa','bchair','ostorage'].includes(baseKey(k)));
+  if(rail.length)out.push(['warn','בטיחות: '+[...new Set(rail.map(([k])=>SLOTDEF('balcony')[baseKey(k)].he))].join(', ')+' ליד המעקה — ילד יכול לטפס. אם יש ילדים, להרחיק לפחות 30 ס״מ.']);
+  if(room.dir==='s'||room.dir==='w')out.push(['warn','מרפסת '+(room.dir==='s'?'דרומית':'מערבית')+' — שמש חזקה אחה״צ: כריות להכניס פנימה, ועדיף הצללה (סוכך או שמשייה).']);
+  if(c.sel.deck){const q=c.sel.deck.qty||1;out.push(['ok','ריצוף RUNNEN: '+q+' אריזות ('+(q*0.81).toFixed(1)+' מ״ר) ל-'+(W*D/10000).toFixed(1)+' מ״ר — נכנס בלחיצה, בלי כלים ובלי לפגוע בריצוף הקיים.'])}
+  if([so,it('otable'),it('bchair')].some(x=>x&&!x.keep&&/חום/.test(x.v)))out.push(['ok','עץ שיטה: שמן לעץ חוץ פעם בשנה, וכיסוי בחורף.']);
+  const lt=['olight','olight2'].map(k=>c.sel[k]&&BY[c.sel[k].id]).filter(Boolean);if(lt.length)out.push(['ok','תאורה בלי חשמל'+(lt.some(x=>/סולארי/.test(x.v))?' — הסולארית צריכה כמה שעות שמש ביום.':'.')]);
+  return out}
+
 // ================= checks =================
-function checks(c,room){const L=layout(room,c.sel);const out=({living:checksLiving,bedroom:checksBedroom,kitchen:checksKitchen,bath:checksBath})[room.type](c,room,L);
-  const d=doorBox(room);if(d){const hit=Object.entries(L.pos).filter(([k,b])=>b&&typeof b==='object'&&!b.under&&k!=='rug'&&overlap(b,d)).map(([k])=>(SLOTDEF(room.type)[k.replace(/2$/,'')]||{he:k}).he).concat((L.fixed||[]).filter(f=>!f.dark&&overlap(f,d)).map(f=>f.label));out.push(hit.length?['bad','פתיחת הדלת נחסמת ע״י '+hit.join(', ')+'.']:['ok','אזור פתיחת הדלת פנוי.'])}
+function checks(c,room){const L=layout(room,c.sel);const out=({living:checksLiving,bedroom:checksBedroom,kitchen:checksKitchen,bath:checksBath,office:checksOffice,kids:checksKids,balcony:checksBalcony})[room.type](c,room,L);
+  const d=doorBox(room);if(d){const hit=Object.entries(L.pos).filter(([k,b])=>b&&typeof b==='object'&&!b.under&&k!=='rug'&&overlap(b,d)).map(([k])=>(SLOTDEF(room.type)[baseKey(k)]||{he:k}).he).concat((L.fixed||[]).filter(f=>!f.dark&&!f.zone&&overlap(f,d)).map(f=>f.label));out.push(hit.length?['bad','פתיחת הדלת נחסמת ע״י '+hit.join(', ')+'.']:['ok','אזור פתיחת הדלת פנוי.'])}
   const ks=Object.keys(L.pos).filter(k=>L.pos[k]&&typeof L.pos[k]==='object'&&!L.pos[k].under&&k!=='rug');const ov=[];for(let i=0;i<ks.length;i++)for(let j=i+1;j<ks.length;j++)if(overlap(L.pos[ks[i]],L.pos[ks[j]]))ov.push(ks[i]+'/'+ks[j]);
   for(const f of L.fixed||[])for(const k of ks)if(overlap(L.pos[k],f))ov.push(k+'/'+f.label);
-  if(ov.length)out.push(['bad','חפיפה בתוכנית: '+ov.map(s=>s.split('/').map(k=>(SLOTDEF(room.type)[k.replace(/2$/,'')]||{he:k}).he).join(' ו')).join(', ')+'.']);
+  if(ov.length)out.push(['bad','חפיפה בתוכנית: '+ov.map(s=>s.split('/').map(k=>(SLOTDEF(room.type)[baseKey(k)]||{he:k}).he).join(' ו')).join(', ')+'.']);
   for(const n of L.notes)out.push(['warn',n]);return{L,out}}
 function checksLiving(c,room,L){const P=L.pos,out=[];const {W,D,tvd}=room;const it=k=>itemOf(c.sel,k,room);const sofa=it('sofa');
   if(!sofa){out.push(['bad','אין ספה בעיצוב.']);return out}
@@ -431,17 +653,17 @@ function checksBath(c,room,L){const P=L.pos,out=[];const {W,D}=room;const it=k=>
   return out}
 
 // ================= plan SVG =================
-const LBL={sofa:'ספה',coffee:'שולחן',arm:'כורסה',pouf:'הדום',rug:'שטיח',bed:'מיטה',wardrobe:'ארון',dresser:'שידה',dtable:'שולחן',cart:'עגלה',kunit:'מטבחון',vanity:'כיור',tallcab:'ארון',bshelf:'מדפים',btrolley:'עגלה',bstool:'שרפרף'};
+const LBL={sofa:'ספה',coffee:'שולחן',arm:'כורסה',pouf:'הדום',rug:'שטיח',bed:'מיטה',wardrobe:'ארון',dresser:'שידה',dtable:'שולחן',cart:'עגלה',kunit:'מטבחון',vanity:'כיור',tallcab:'ארון',bshelf:'מדפים',btrolley:'עגלה',bstool:'שרפרף',desk:'שולחן',ochair:'כיסא',bookcase:'מדפים',kbed:'מיטה',kstorage:'אחסון',ktable:'שולחן',kchair:'כיסא',osofa:'ספה',otable:'שולחן',bchair:'כיסא',lounger:'שיזוף',ostorage:'אחסון'};
 function planSVG(c,room){
   const {L}=checks(c,room);const P=L.pos;const {W,D}=room;const m=26;const wall='var(--plan-wall)';const fnt='font-family="IBM Plex Sans Hebrew,Arial"';
-  const itemFor=k=>{const base=k.replace(/2$/,'');return itemOf(c.sel,base,room)};
+  const itemFor=k=>{const base=baseKey(k);return itemOf(c.sel,base,room)};
   let s=`<svg viewBox="${-m} ${-m} ${W+2*m} ${D+2*m}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="תוכנית קומה בקנה מידה"><defs><pattern id="g" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="currentColor" stroke-opacity=".07" stroke-width=".6"/></pattern><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V6" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/></pattern></defs><rect x="0" y="0" width="${W}" height="${D}" fill="url(#g)" style="color:var(--ink)"/>`;
-  for(const f of L.fixed||[])s+=`<rect x="${f.x}" y="${f.y}" width="${f.w}" height="${Math.max(f.h,5)}" ${f.dark?'fill="var(--ink)" fill-opacity=".85"':'fill="url(#hatch)" stroke="var(--ink)" stroke-opacity=".35"'} style="color:var(--ink)"/>`+(f.h>=14&&f.w>=30?`<text x="${f.x+f.w/2}" y="${f.y+f.h/2+3}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt}>${esc(f.label)}</text>`:`<text x="${f.x+f.w/2}" y="${f.y+Math.max(f.h,5)+11}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt}>${esc(f.label)}</text>`);
+  for(const f of L.fixed||[])if(f.zone)s+=`<rect x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" fill="none" stroke="var(--ink)" stroke-opacity=".3" stroke-dasharray="5 4"/><text x="${f.x+f.w/2}" y="${f.y+f.h/2}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt} transform="rotate(-90 ${f.x+f.w/2} ${f.y+f.h/2})">${esc(f.label)}</text>`;else s+=`<rect x="${f.x}" y="${f.y}" width="${f.w}" height="${Math.max(f.h,5)}" ${f.dark?'fill="var(--ink)" fill-opacity=".85"':'fill="url(#hatch)" stroke="var(--ink)" stroke-opacity=".35"'} style="color:var(--ink)"/>`+(f.h>=14&&f.w>=30?`<text x="${f.x+f.w/2}" y="${f.y+f.h/2+3}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt}>${esc(f.label)}</text>`:`<text x="${f.x+f.w/2}" y="${f.y+Math.max(f.h,5)+11}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt}>${esc(f.label)}</text>`);
   const order=Object.keys(P).sort((a,b)=>(P[b].under||0)-(P[a].under||0));
-  for(const k of order){const b=P[k];const x=itemFor(k);if(!b||!x||typeof b!=='object'||b.x===undefined)continue;const f=x.hex,tc=textOn(f);const isRug=k==='rug';
+  for(const k of order){const b=P[k];const x=itemFor(k);if(!b||!x||typeof b!=='object'||b.x===undefined)continue;const f=x.hex,tc=textOn(f);const isRug=/rug$/.test(k);
     s+=b.round?`<ellipse cx="${b.x+b.w/2}" cy="${b.y+b.h/2}" rx="${b.w/2}" ry="${b.h/2}" fill="${f}" stroke="${wall}" stroke-opacity=".55"/>`:`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${isRug?2:5}" fill="${f}" ${isRug?'fill-opacity=".5"':''} stroke="${wall}" stroke-opacity="${isRug?.25:.55}" ${b.under===1?'stroke-dasharray="3 3" fill-opacity=".6"':''}/>`;
     if(b.cl)s+=`<rect x="${b.cl.x}" y="${b.cl.y}" width="${b.cl.w}" height="${b.cl.h}" fill="none" stroke="${wall}" stroke-opacity=".25" stroke-dasharray="2 3"/>`;
-    const lb=LBL[k.replace(/2$/,'')];const fs=Math.max(7,Math.min(11,b.w/7));
+    const lb=LBL[baseKey(k)];const fs=Math.max(7,Math.min(11,b.w/7));
     if(lb&&b.w>26&&b.h>14)s+=`<text x="${b.x+b.w/2}" y="${isRug?b.y+12:b.y+b.h/2+fs/3}" font-size="${fs}" text-anchor="middle" fill="${isRug?'var(--ink)':tc}" ${isRug?'fill-opacity=".6"':''} ${fnt}>${esc(lb)}${k==='sofa'||k==='bed'?' '+x.fw:''}</text>`}
   const pd=itemOf(c.sel,'pendant',room);if(pd){const anchor=P.coffee||P.dtable||P.bed||P.sofa;if(anchor){const cy=anchor===P.bed?P.bed.y+P.bed.h*0.4:anchor===P.sofa?P.sofa.y-50:anchor.y+anchor.h/2;s+=`<circle cx="${anchor.x+anchor.w/2}" cy="${cy}" r="${(pd.fw||40)/2}" fill="none" stroke="${wall}" stroke-opacity=".5" stroke-dasharray="4 3"/>`}}
   s+=`<rect x="0" y="0" width="${W}" height="${D}" fill="none" stroke="${wall}" stroke-width="4"/>`;
@@ -449,7 +671,9 @@ function planSVG(c,room){
     if(room.winWall==='sofa'){wx=W/2-ww/2;wy=D-2;wW=ww;wH=4}else if(room.winWall==='tv'){wx=W/2-ww/2;wy=-2;wW=ww;wH=4}else if(room.winWall==='left'){wx=-2;wy=D/2-ww/2;wW=4;wH=ww}else{wx=W-2;wy=D/2-ww/2;wW=4;wH=ww}
     const tx=room.winWall==='left'?-9:room.winWall==='right'?W+9:W/2,ty=room.winWall==='sofa'?D+16:room.winWall==='tv'?-9:D/2;
     s+=`<rect x="${wx}" y="${wy}" width="${wW}" height="${wH}" fill="#8fb7d6"/><text x="${tx}" y="${ty}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt} ${side?`transform="rotate(-90 ${tx} ${ty})"`:''}>חלון ${room.winW}</text>`}
-  const d=doorBox(room);if(d){const left=room.door[1]==='l';const hx=left?0:W;const y0=d.y,y1=d.y+80;
+  const d=doorBox(room);if(d&&room.type==='balcony'){const l=room.door[1]==='l';const hx=l?5:W-5,ex=l?hx+80:hx-80;
+    s+=`<line x1="${hx}" y1="${D}" x2="${ex}" y2="${D}" stroke="var(--plan-floor)" stroke-width="6"/><path d="M${hx} ${D} L${hx} ${D-80} A80 80 0 0 ${l?1:0} ${ex} ${D}" fill="var(--ink)" fill-opacity=".05" stroke="var(--ink)" stroke-opacity=".35" stroke-dasharray="3 3"/><text x="${(hx+ex)/2}" y="${D-10}" font-size="9" text-anchor="middle" fill="var(--muted)" ${fnt}>דלת</text>`}
+  else if(d){const left=room.door[1]==='l';const hx=left?0:W;const y0=d.y,y1=d.y+80;
     s+=`<line x1="${hx}" y1="${y0}" x2="${hx}" y2="${y1}" stroke="var(--plan-floor)" stroke-width="6"/><path d="M${hx} ${y0} L${left?80:W-80} ${y0} A80 80 0 0 ${left?1:0} ${hx} ${y1}" fill="var(--ink)" fill-opacity=".05" stroke="var(--ink)" stroke-opacity=".35" stroke-dasharray="3 3"/><text x="${left?10:W-10}" y="${y0+44}" font-size="9" text-anchor="${left?'start':'end'}" fill="var(--muted)" ${fnt}>דלת</text>`}
   if(room.winWall!=='tv')s+=`<text x="${W/2}" y="-10" font-size="10" text-anchor="middle" fill="var(--muted)" ${fnt}>${W} ס״מ</text>`;
   if(room.winWall!=='left')s+=`<text x="-12" y="${D/2}" font-size="10" text-anchor="middle" fill="var(--muted)" transform="rotate(-90 -12 ${D/2})" ${fnt}>${D} ס״מ</text>`;
@@ -469,7 +693,7 @@ function renderConcept(){
   h+=`<div class="pal">${st.pal.map(p=>`<div style="background:${p[0]};color:${textOn(p[0])};flex:${p[2].startsWith('60')?3:p[2].startsWith('30')?2:1}"><b>${esc(p[1])}</b>${esc(p[2])}</div>`).join('')}</div><p class="hint">${esc(DIR_NOTE[room.dir]||DIR_NOTE.u)}</p>`;
   h+=`<div class="total"><span class="muted small">סה״כ לקנייה${c.dropped&&c.dropped.length?' · ויתרנו על: '+c.dropped.map(k=>SLOTDEF(room.type)[k].he).join(', '):''}</span><b>${ils(tot)}</b></div><div class="bar${over?' over':''}"><i style="width:${Math.min(100,tot/room.budget*100)}%"></i></div><p class="hint">${over?'חורג מהתקציב ב-'+ils(tot-room.budget):'נשארים '+ils(room.budget-tot)+' מתוך '+ils(room.budget)}</p>`;
   if(over)h+=`<button class="btn sm ghost" id="fitB" style="margin-top:8px">התאם לתקציב</button>`;
-  h+=`<div class="planbox">${planSVG(c,room)}</div><p class="hint">תוכנית מלמעלה בקנה מידה (משבצת = 10 ס״מ). ${esc(R.mainWall==='הספה'?'קיר הספה':R.mainWall==='ראש המיטה'?'קיר ראש המיטה':R.mainWall==='הכיור'?'קיר הכיור':'פינת האוכל')} למטה.</p>`;
+  h+=`<div class="planbox">${planSVG(c,room)}</div><p class="hint">תוכנית מלמעלה בקנה מידה (משבצת = 10 ס״מ). ${esc(R.plan||((R.mainWall==='הספה'?'קיר הספה':R.mainWall==='ראש המיטה'?'קיר ראש המיטה':R.mainWall==='הכיור'?'קיר הכיור':'פינת האוכל')+' למטה.'))}</p>`;
   h+=`<ul class="checks">${out.map(([k,t])=>`<li class="${k}"><span class="ic">${k==='ok'?'✓':k==='warn'?'!':'✕'}</span><span>${esc(t)}</span></li>`).join('')}</ul>`;
   const act=activeSlots(room,c.sel);
   for(const g of ['r','f','l','t','d']){const rows=act.filter(s=>s.g===g);if(!rows.length)continue;h+=`<div class="group"><h3>${GROUPS[g]}</h3>`;
@@ -500,11 +724,11 @@ function openSwap(slot){
   openSheet(h);
   $('#sheet').querySelectorAll('.alt').forEach(b=>b.onclick=()=>{const id=b.dataset.id;if(id==='none')c.sel[slot]=null;else{const x=BY[+id];c.sel[slot]={id:x.id,qty:qtyFor(slot,x,c.sel,room),lock:true}}revalidate(c,room,slot);closeSheet();renderAll()});
 }
-function revalidate(c,room,changed){
+function revalidate(c,room,changed,quiet){
   for(const s of ROOMS[room.type].slots){if(s.k===changed)continue;
     if(s.on&&!s.on(room,c.sel)){c.sel[s.k]=null;continue}
     const e=c.sel[s.k];if(!e||e.keep)continue;const x=BY[e.id];
-    if(!fitCheck(x,s.k,c.sel,room).ok){const cd=pick(s.k,c.style,room,Object.assign({},c.sel,{[s.k]:null}));c.sel[s.k]=cd?{id:cd.x.id,qty:qtyFor(s.k,cd.x,c.sel,room)}:null;toast(s.he+' הוחלף/ה כדי שיתאים')}
+    if(!fitCheck(x,s.k,c.sel,room).ok){const cd=pick(s.k,c.style,room,Object.assign({},c.sel,{[s.k]:null}));c.sel[s.k]=cd?{id:cd.x.id,qty:qtyFor(s.k,cd.x,c.sel,room)}:null;if(!quiet)toast(s.he+' הוחלף/ה כדי שיתאים')}
     else c.sel[s.k].qty=qtyFor(s.k,x,c.sel,room)}
   if(changed==='kunit')for(const k of ['ksink','ktap']){const d=SLOTDEF(room.type)[k];if(d.on(room,c.sel)&&!c.sel[k]){const cd=pick(k,c.style,room,c.sel);c.sel[k]=cd?{id:cd.x.id,qty:1}:null}}
 }
@@ -514,8 +738,8 @@ function closeSheet(){$('#sheet').classList.remove('on');$('#scrim').classList.r
 // ================= list / Gemini =================
 function listText(c){const st=STYLES[c.style];let t=`${ROOMS[ROOM.type].he} · ${c.title||st.name} — בהשראת ${st.designer}\n`;for(const s of activeSlots(ROOM,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;const x=BY[e.id];t+=`• ${s.he}: ${x.n} — ${x.v}${(e.qty||1)>1?' ×'+e.qty:''} — ${ils(x.p*(e.qty||1))}\n  ${ikeaUrl(x)}\n`}return t+`סה״כ: ${ils(totalOf(c.sel))}`}
 function geminiPrompt(c){const st=STYLES[c.style],room=ROOM,R=ROOMS[room.type];const keep=[...room.keep];const lines=[];let i=1;
-  for(const s of activeSlots(room,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;lines.push(`${i++}. ${BY[e.id].n} (${s.cat}${(e.qty||1)>1?' x'+e.qty:''})`)}
-  const place={living:`Place the sofa against the ${room.W} cm wall; keep a clear 60–90 cm walkway in front of it; rug under the sofa's front legs.`,bedroom:`Bed headboard centred on the ${room.W} cm wall, bedside tables on both sides, at least 60 cm to walk around the bed.`,kitchen:`Keep the existing kitchen cabinets${room.mode==='renovate'?' but replace the sink and tap with the ones listed':''}; place the dining table with at least 90 cm from the counter.`,bath:`Keep the existing toilet, shower/bath and tiles${room.mode==='renovate'?'; replace the vanity and mirror with the ones listed':''}.`}[room.type];
+  for(const s of activeSlots(room,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;lines.push(`${i++}. ${BY[e.id].n} (${catName(s)}${(e.qty||1)>1?' x'+e.qty:''})`)}
+  const place={living:`Place the sofa against the ${room.W} cm wall; keep a clear 60–90 cm walkway in front of it; rug under the sofa's front legs.`,bedroom:`Bed headboard centred on the ${room.W} cm wall, bedside tables on both sides, at least 60 cm to walk around the bed.`,kitchen:`Keep the existing kitchen cabinets${room.mode==='renovate'?' but replace the sink and tap with the ones listed':''}; place the dining table with at least 90 cm from the counter.`,bath:`Keep the existing toilet, shower/bath and tiles${room.mode==='renovate'?'; replace the vanity and mirror with the ones listed':''}.`,office:`Desk against the ${room.W} cm wall with the chair in front of it, about 90 cm free behind the chair; task lamp on the desk.`,kids:`A child's room: bed along a wall, a clear play area in the middle of the floor, storage low and reachable.`,balcony:`This is an outdoor balcony: house wall with the door at the bottom, railing opposite. Keep a clear 70 cm path from the door. Outdoor furniture only.`}[room.type];
   return `Edit the attached ${R.en} photo. Keep the exact camera angle, perspective, walls, window, floor, ceiling and daylight. ${keep.length?'Keep the existing '+keep.join(', ')+'.':'Remove the existing loose furniture and decor.'}
 Furnish it in a ${st.en} style (in the spirit of ${st.designer}) using ONLY the IKEA products in the second image (numbered product sheet). Match each product's exact shape, colour and material — do not invent other furniture.
 Room: ${room.W} x ${room.D} cm. ${place}
@@ -553,7 +777,7 @@ function feedback(c){const url=c?shareUrl(c):SITE;const txt=`משוב על "חד
   $('#fbCopy').onclick=()=>copyText(txt)}
 function loadShared(){const m=location.hash.match(/^#d=(.+)$/);if(!m)return false;let d;try{d=JSON.parse(b64u.dec(m[1]))}catch(e){return false}
   if(!d||!ROOMS[d.r]||!STYLES[d.s])return false;F.room=d.r;F.per[d.r]=Object.assign({},PER_DEF[d.r],d.p||{});if(typeof d.rt==='boolean')F.renter=d.rt;$('#renter').checked=F.renter;renderRoomForm();
-  ROOM=roomOf();const sel={};for(const s of ROOMS[d.r].slots){const v=d.sel&&d.sel[s.k];sel[s.k]=v==='k'?{keep:true}:Array.isArray(v)&&BY[v[0]]&&BY[v[0]].slot===s.cat?{id:v[0],qty:Math.max(1,Math.min(12,+v[1]||1)),lock:true}:null}
+  ROOM=roomOf();const sel={};for(const s of ROOMS[d.r].slots){const v=d.sel&&d.sel[s.k];sel[s.k]=v==='k'?{keep:true}:Array.isArray(v)&&BY[v[0]]&&catHas(s,BY[v[0]])?{id:v[0],qty:Math.max(1,Math.min(12,+v[1]||1)),lock:true}:null}
   const shared={style:d.s,sel,src:'shared',room:d.r,title:String(d.t||'').slice(0,40),why:String(d.w||'').slice(0,400)};
   CONCEPTS=[shared].concat(chooseStyles(ROOM).filter(k=>k!==d.s).slice(0,2).map(k=>localConcept(k,ROOM)));ACTIVE=0;renderAll();
   $('#results').classList.remove('hidden');setTimeout(()=>$('#results').scrollIntoView({block:'start'}),50);toast('נפתח העיצוב ששותף איתך');return true}
@@ -565,11 +789,14 @@ function refreshAi(){const box=$('#aiBox');if(!box)return;if(!sample){box.classL
 const RULES={living:'Sofa depth + 42 + coffee-table depth + 60 must fit the room depth minus the TV; if no coffee table fits use null and a pouf. Rug at least ~85% of sofa width. Leave out an armchair that would block the walkway.',
  bedroom:'Bed must leave 60 cm on each side for a couple (45 min) and 70 cm at the foot. Mattress width must equal the bed nominal width (e.g. 160x200 bed → 160 mattress). Duvet/bedspread size must match single vs double. Wardrobe needs a free wall plus door-opening space.',
  kitchen:'Keep 100 cm between the kitchen counter and the dining table, 75 cm behind chairs. Chairs count = seats wanted. Pendant 45–60% of table width.',
- bath:'Keep 70 cm clear in front of the sink. Mirror or mirror cabinet not wider than the vanity. Prefer no-drill items for renters.'};
+ bath:'Keep 70 cm clear in front of the sink. Mirror or mirror cabinet not wider than the vanity. Prefer no-drill items for renters.',
+ office:'Desk must leave 90 cm behind it for the chair. For a monitor the desk should be at least 60 cm deep. Adult office chair (not a kids chair). Task lamp on the side opposite the writing hand.',
+ kids:'Age 2-5: junior/extendable bed, small table and chairs, no loft or top bunk. Age 6-12: desk and student chair. Two kids: bunk bed with two mattresses. Mattress size must equal the bed size. Leave a free play area. Low, reachable storage.',
+ balcony:'Outdoor products only. Keep a 70 cm path from the door. Seats = sofa seats + chairs. Nothing climbable pressed against the railing.'};
 function aiPrompt(room){const R=ROOMS[room.type];const lines=[];
-  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>x.slot===s.cat).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd:'-'} | ${x.tags}`)}
+  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd:'-'} | ${x.tags}`)}
   const styles=Object.entries(STYLES).map(([k,v])=>`${k}: ${v.name} — lens ${v.designer}. ${v.idea}`).join('\n');
-  const extra={living:`TV: ${room.tv}. Uses: ${[...room.uses].join(', ')}.`,bedroom:`Sleepers: ${room.sleepers}.`,kitchen:`Seats: ${room.seats}. Mode: ${room.mode}.`,bath:`Shower: ${room.shower}. Mode: ${room.mode}.`}[room.type];
+  const extra={living:`TV: ${room.tv}. Uses: ${[...room.uses].join(', ')}.`,bedroom:`Sleepers: ${room.sleepers}.`,kitchen:`Seats: ${room.seats}. Mode: ${room.mode}.`,bath:`Shower: ${room.shower}. Mode: ${room.mode}.`,office:`Space: ${room.space}. Work: ${room.work}.`,kids:`Age: ${room.age}. Kids: ${room.kids}.`,balcony:`Uses: ${[...room.bUses].join(', ')}. Seats: ${room.bSeats}. Floor: ${room.floor}.`}[room.type];
   const slotsList=R.slots.filter(s=>!s.on||s.on(room,{})).map(s=>s.k).join(', ');
   return `You are a top interior designer. Design a ${R.en} using ONLY the IKEA Israel products listed below (ids). Write every text field in Hebrew.
 ROOM: main wall ${room.W} cm; depth ${room.D} cm. Window ${room.winWall==='none'?'none':'on '+room.winWall+' wall, '+room.winW+' cm'}, faces ${DIRS[room.dir]}. Door: ${room.door}. Renter: ${room.renter?'yes':'no'}. ${extra}
@@ -591,7 +818,7 @@ function applyAi(res,room){let fixed=0;const out=[],seen=new Set();const list=re
   for(const rc of list){const style=String(rc&&rc.style||'').toUpperCase();if(!STYLES[style]||seen.has(style))continue;seen.add(style);const sel={},items=rc.items||{};
     for(const s of ROOMS[room.type].slots){if(s.on&&!s.on(room,sel)){sel[s.k]=null;continue}if(keepsSlot(room,s.k)){sel[s.k]={keep:true};continue}
       const raw=items[s.k];if(raw===null||raw===undefined||raw===''){sel[s.k]=null;continue}const x=BY[+raw];
-      if(x&&x.slot===s.cat&&fitCheck(x,s.k,sel,room).ok&&!(s.k==='cushion2'&&sel.cushion&&sel.cushion.id===x.id))sel[s.k]={id:x.id,qty:qtyFor(s.k,x,sel,room)};
+      if(x&&catHas(s,x)&&fitCheck(x,s.k,sel,room).ok&&!(s.k==='cushion2'&&sel.cushion&&sel.cushion.id===x.id))sel[s.k]={id:x.id,qty:qtyFor(s.k,x,sel,room)};
       else{fixed++;const cd=pick(s.k,style,room,sel);sel[s.k]=cd?{id:cd.x.id,qty:qtyFor(s.k,cd.x,sel,room)}:null}}
     out.push({style,sel,src:'ai',room:room.type,title:typeof rc.title==='string'?rc.title.slice(0,40):'',why:typeof rc.why==='string'?rc.why.slice(0,400):'',tips:Array.isArray(rc.tips)?rc.tips.filter(t=>typeof t==='string').slice(0,4).map(t=>t.slice(0,220)):[]});if(out.length===3)break}
   for(const k of chooseStyles(room).concat(Object.keys(STYLES))){if(out.length>=3)break;if(!out.some(c=>c.style===k))out.push(localConcept(k,room))}

@@ -185,7 +185,7 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
       <div class="sw"><i style="background:#EDE6DA"></i><i style="background:#CDB894"></i><i style="background:#B58A55"></i><i style="background:#A9573B"></i><i style="background:#707A5A"></i></div>
     </div>
     <div class="designers"><span>Norm Architects</span><span>John Pawson</span><span>Axel Vervoordt</span><span>Dorothy Draper</span><span>Studio McGee</span><span>India Mahdavi</span></div>
-    <div class="proof"><div><b>445</b><span>מוצרים אמיתיים</span></div><div><b>4</b><span>סוגי חדרים</span></div><div><b>6</b><span>שפות עיצוב</span></div></div>
+    <div class="proof"><div><b id="statN">600+</b><span>מוצרים אמיתיים</span></div><div><b id="statR">7</b><span>סוגי חדרים</span></div><div><b>6</b><span>שפות עיצוב</span></div></div>
   </header>
 
   <div id="formWrap">
@@ -204,16 +204,16 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
     </div>
     <div class="row">
       <label class="f"><span id="lblW">אורך הקיר (ס״מ)</span><input type="number" id="W" min="120" max="800" step="5" inputmode="numeric"></label>
-      <label class="f"><span id="lblD">עומק (ס״מ)</span><input type="number" id="D" min="120" max="800" step="5" inputmode="numeric"></label>
+      <label class="f"><span id="lblD">עומק (ס״מ)</span><input type="number" id="D" min="60" max="800" step="5" inputmode="numeric"></label>
     </div>
-    <div class="row">
+    <div class="row" id="winRow">
       <label class="f"><span>איפה החלון</span><select id="winWall"></select></label>
       <label class="f"><span>רוחב החלון (ס״מ)</span><input type="number" id="winW" min="40" max="400" step="5" inputmode="numeric"></label>
     </div>
     <label class="f"><span>הדלת</span><select id="door">
       <option value="none">לא בחלל הזה</option><option value="tl">שמאל, ליד הקיר ממול</option><option value="tr">ימין, ליד הקיר ממול</option><option value="bl">שמאל, ליד הקיר הראשי</option><option value="br">ימין, ליד הקיר הראשי</option></select></label>
     <div id="extras"></div>
-    <label class="f"><span>לאיזה כיוון החלון פונה</span></label>
+    <label class="f"><span id="dirLbl">לאיזה כיוון החלון פונה</span></label>
     <div class="chips" id="dirChips"></div>
     <p class="hint">לא בטוחים? אם רואים שקיעה מהחלון — הוא פונה בערך למערב. אם השמש נכנסת בבוקר — למזרח.</p>
     <label class="toggle"><input type="checkbox" id="renter"> אני בשכירות (בלי עבודות חשמל, מינימום קידוחים)</label>
@@ -249,8 +249,9 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="catalog.js?v=1790678529"></script>
-<script src="catalog2.js?v=1790678529"></script>
-<script src="app.js?v=1790678529"></script>
+<script src="catalog.js?v=1790679751"></script>
+<script src="catalog2.js?v=1790679751"></script>
+<script src="catalog3.js?v=1790679751"></script>
+<script src="app.js?v=1790679751"></script>
 </body>
 </html>
