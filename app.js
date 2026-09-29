@@ -465,7 +465,7 @@ function renderTabs(){const el=$('#tabs');el.innerHTML='';CONCEPTS.forEach((c,i)
 function renderConcept(){
   const c=CONCEPTS[ACTIVE];if(!c)return;const st=STYLES[c.style];const room=ROOM;const R=ROOMS[room.type];const tot=totalOf(c.sel);const over=tot>room.budget;const {out}=checks(c,room);
   $('#rhTitle').textContent='שלושה כיוונים ל'+R.he+' שלך';
-  let h=`<h2 style="margin:0">${esc(c.title||st.name)}</h2><p class="designer">בהשראת ${esc(st.designer)} (${esc(st.city)})${c.src==='ai'?' · עוצב אישית ע״י Claude':''}</p><p class="why">${esc(c.why||st.idea)}</p>`;
+  let h=`<h2 style="margin:0">${esc(c.title||st.name)}</h2><p class="designer">בהשראת ${esc(st.designer)} (${esc(st.city)})${c.src==='ai'?' · עוצב אישית ע״י Claude':c.src==='shared'?' · עיצוב ששותף איתך':''}</p><p class="why">${esc(c.why||st.idea)}</p>`;
   h+=`<div class="pal">${st.pal.map(p=>`<div style="background:${p[0]};color:${textOn(p[0])};flex:${p[2].startsWith('60')?3:p[2].startsWith('30')?2:1}"><b>${esc(p[1])}</b>${esc(p[2])}</div>`).join('')}</div><p class="hint">${esc(DIR_NOTE[room.dir]||DIR_NOTE.u)}</p>`;
   h+=`<div class="total"><span class="muted small">סה״כ לקנייה${c.dropped&&c.dropped.length?' · ויתרנו על: '+c.dropped.map(k=>SLOTDEF(room.type)[k].he).join(', '):''}</span><b>${ils(tot)}</b></div><div class="bar${over?' over':''}"><i style="width:${Math.min(100,tot/room.budget*100)}%"></i></div><p class="hint">${over?'חורג מהתקציב ב-'+ils(tot-room.budget):'נשארים '+ils(room.budget-tot)+' מתוך '+ils(room.budget)}</p>`;
   if(over)h+=`<button class="btn sm ghost" id="fitB" style="margin-top:8px">התאם לתקציב</button>`;
@@ -482,11 +482,11 @@ function renderConcept(){
   if(room.type==='living'||room.type==='bedroom')h+=`<p class="hint">כיסויי כריות נמכרים בלי מילוי — צריך כרית פנימית בנפרד.</p>`;
   if(room.type==='kitchen'&&room.mode==='renovate')h+=`<p class="hint"><a href="https://www.ikea.com/il/he/planners/kitchen-planner/" target="_blank" rel="noopener">לתכנון ארונות מטבח מלא — כלי התכנון של איקאה ↗</a></p>`;
   h+=`<h3 style="margin-top:18px">טיפים של המעצב</h3><ul class="tips">${(c.tips&&c.tips.length?c.tips:st.tips).map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`;
-  h+=`<div class="actions"><button class="btn ghost" id="listB">רשימת קניות</button><button class="btn ghost" id="gemB">הדמיה ב-Gemini</button></div><div class="ai" id="aiBox"></div>`;
+  h+=`<div class="actions"><button class="btn" id="shareB">שיתוף העיצוב</button><button class="btn ghost" id="listB">רשימת קניות</button><button class="btn ghost" id="gemB">הדמיה ב-Gemini</button><button class="btn ghost" id="fbB">משוב</button></div><div class="ai" id="aiBox"></div>`;
   $('#concept').innerHTML=h;
   $('#concept').querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>openSwap(b.dataset.swap));
   const fb=$('#fitB');if(fb)fb.onclick=()=>{fitBudget(c,room);renderAll();toast('הותאם לתקציב')};
-  $('#listB').onclick=()=>showText('רשימת קניות',listText(c),'העתקה');$('#gemB').onclick=()=>geminiSheet(c);refreshAi();
+  $('#listB').onclick=()=>showText('רשימת קניות',listText(c),'העתקה');$('#shareB').onclick=()=>shareDesign(c);$('#fbB').onclick=()=>feedback(c);$('#gemB').onclick=()=>geminiSheet(c);refreshAi();
 }
 
 // ================= swap =================
@@ -539,6 +539,24 @@ function showText(title,txt,btn){openSheet(`<div class="hd"><h3>${esc(title)}</h
 async function copyText(t,ta){try{await navigator.clipboard.writeText(t);toast('הועתק')}catch(e){if(ta){ta.focus();ta.select();try{document.execCommand('copy');toast('הועתק')}catch(_){toast('סמנו והעתיקו ידנית')}}}}
 $('#scrim').onclick=closeSheet;
 
+
+// ================= share + feedback =================
+const SITE='https://ilyahan1988-alt.github.io/ikea-room/';
+const b64u={enc:s=>btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),dec:s=>decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))))};
+function shareUrl(c){const sel={};for(const [k,e] of Object.entries(c.sel)){sel[k]=!e?0:e.keep?'k':[e.id,e.qty||1]}
+  return SITE+'#d='+b64u.enc(JSON.stringify({v:1,r:ROOM.type,p:F.per[ROOM.type],rt:F.renter,s:c.style,t:c.title||'',w:c.why||'',sel}))}
+async function shareDesign(c){const url=shareUrl(c);const R=ROOMS[ROOM.type];const text=`עיצוב ל${R.he} מאיקאה — ${c.title||STYLES[c.style].name}, ${ils(totalOf(c.sel))}`;
+  if(navigator.share){try{await navigator.share({title:'חדר באיקאה',text,url});return}catch(e){if(e&&e.name==='AbortError')return}}
+  showText('קישור לעיצוב',url,'העתקת הקישור')}
+function feedback(c){const url=c?shareUrl(c):SITE;const txt=`משוב על "חדר באיקאה":\n\nמה עבד: \nמה לא עבד: \n\nהעיצוב שלי: ${url}`;
+  openSheet(`<div class="hd"><h3>משוב</h3><button class="btn sm ghost" id="closeS">סגירה</button></div><p class="muted">מה אהבתם, מה הרגיש לא נכון, מה חסר? ההודעה נפתחת ב-WhatsApp עם קישור לעיצוב שלכם — בוחרים למי לשלוח.</p><div class="actions"><a class="btn" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">שליחה ב-WhatsApp</a><button class="btn ghost" id="fbCopy">העתקת ההודעה</button></div>`);
+  $('#fbCopy').onclick=()=>copyText(txt)}
+function loadShared(){const m=location.hash.match(/^#d=(.+)$/);if(!m)return false;let d;try{d=JSON.parse(b64u.dec(m[1]))}catch(e){return false}
+  if(!d||!ROOMS[d.r]||!STYLES[d.s])return false;F.room=d.r;F.per[d.r]=Object.assign({},PER_DEF[d.r],d.p||{});if(typeof d.rt==='boolean')F.renter=d.rt;$('#renter').checked=F.renter;renderRoomForm();
+  ROOM=roomOf();const sel={};for(const s of ROOMS[d.r].slots){const v=d.sel&&d.sel[s.k];sel[s.k]=v==='k'?{keep:true}:Array.isArray(v)&&BY[v[0]]&&BY[v[0]].slot===s.cat?{id:v[0],qty:Math.max(1,Math.min(12,+v[1]||1)),lock:true}:null}
+  const shared={style:d.s,sel,src:'shared',room:d.r,title:String(d.t||'').slice(0,40),why:String(d.w||'').slice(0,400)};
+  CONCEPTS=[shared].concat(chooseStyles(ROOM).filter(k=>k!==d.s).slice(0,2).map(k=>localConcept(k,ROOM)));ACTIVE=0;renderAll();
+  $('#results').classList.remove('hidden');setTimeout(()=>$('#results').scrollIntoView({block:'start'}),50);toast('נפתח העיצוב ששותף איתך');return true}
 // ================= Claude personal design =================
 let aiCtl=null,aiState={busy:false,msg:''};
 function refreshAi(){const box=$('#aiBox');if(!box)return;if(!sample){box.classList.add('hidden');return}box.classList.remove('hidden');const wp=photoFile&&sampleImages;
@@ -581,5 +599,6 @@ function applyAi(res,room){let fixed=0;const out=[],seen=new Set();const list=re
 
 // ================= boot =================
 initForm();
+loadShared();
 (async()=>{if(!window.claude||!window.claude.use)return;try{sample=await window.claude.use('sample')}catch(e){sample=null}
   if(sample){try{const lim=await sample.limits();sampleImages=!!(lim&&lim.images)}catch(e){sampleImages=false}}try{downloads=await window.claude.use('downloads')}catch(e){downloads=null}refreshAi()})();
