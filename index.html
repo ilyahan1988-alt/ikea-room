@@ -169,6 +169,12 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
 .hidden{display:none!important}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
 .roomtabs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.roomtabs .chip{min-height:52px;font-size:16px;font-family:var(--display);border-radius:16px}
+.palpick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.palpick .chip{display:flex;flex-direction:column;align-items:stretch;gap:7px;border-radius:16px;padding:8px 8px 9px;text-align:center;font-size:13px;line-height:1.25;min-height:0;justify-content:flex-start}
+.palpick .chip:last-child{grid-column:1/-1}
+.palpick .chip:first-child{grid-column:1/-1;flex-direction:row;justify-content:center;align-items:center;padding:10px 14px;font-size:14px}
+.sw3{display:flex;border-radius:999px;overflow:hidden;box-shadow:0 0 0 1px #0002;flex:none;width:100%}.sw3 i{flex:1;height:22px;display:block}
+.cpick{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);flex:1}.cpick input{width:100%;max-width:92px;height:40px;padding:0;border:1px solid var(--line);border-radius:12px;background:none}
 </style>
 </head>
 <body>
@@ -228,7 +234,12 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
 
   <section class="card">
     <div class="shead"><span class="step">03</span><h2>טעם ותקציב</h2></div>
-    <label class="f"><span>מה אוהבים</span></label><div class="chips" id="likeChips"></div>
+    <label class="f"><span>פלטת צבעים לחדר הזה</span></label>
+    <p class="hint" style="margin:0 0 8px">אפשר לבחור שילוב והעיצובים ייבנו סביבו, או להשאיר "אוטומטי". לכל חדר פלטה משלו.</p>
+    <div class="chips palpick" id="palChips"></div>
+    <div class="row hidden" id="palCustom" style="margin-top:10px"></div>
+    <label class="f" style="margin-top:14px"><span>החדר פתוח לחדר אחר?</span></label><div class="chips" id="opensChips"></div>
+        <label class="f"><span>מה אוהבים</span></label><div class="chips" id="likeChips"></div>
     <label class="f"><span>מה לא רוצים</span></label><div class="chips" id="disChips"></div>
     <div class="budget"><span class="muted small">תקציב לכל עיצוב</span><b id="budgetOut"></b></div>
     <input type="range" id="budget" min="500" max="15000" step="250" aria-label="תקציב">
@@ -250,9 +261,9 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="catalog.js?v=1790788148"></script>
-<script src="catalog2.js?v=1790788148"></script>
-<script src="catalog3.js?v=1790788148"></script>
-<script src="app.js?v=1790788148"></script>
+<script src="catalog.js?v=1790790099"></script>
+<script src="catalog2.js?v=1790790099"></script>
+<script src="catalog3.js?v=1790790099"></script>
+<script src="app.js?v=1790790099"></script>
 </body>
 </html>

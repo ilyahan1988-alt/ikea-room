@@ -138,11 +138,30 @@ const PER_DEF={
  kids:{W:300,D:300,winWall:'tv',winW:120,door:'br',dir:'u',keep:[],budget:4000,age:'school',kids:1},
  balcony:{W:300,D:150,winWall:'none',winW:60,door:'bl',dir:'u',keep:[],budget:2500,bUses:['coffee','plants'],bSeats:2,floor:'keep'},
 };
+const PALETTES={
+ sage:{he:'קרם · מרווה · טרקוטה',c:['#e9e1d0','#8d9b84','#b4634a'],n:['קרם','מרווה','טרקוטה']},
+ navy:{he:'חול · כחול עמוק · פליז',c:['#e6dccb','#2f4050','#b08d4a'],n:['חול','כחול עמוק','פליז']},
+ olive:{he:'שמנת · זית · חרדל',c:['#ece4d2','#6b7048','#c9973a'],n:['שמנת','זית','חרדל']},
+ blush:{he:'שמנת · ורוד אבקתי · ירוק עמוק',c:['#eee6dc','#d8b4ab','#4f6a54'],n:['שמנת','ורוד אבקתי','ירוק עמוק']},
+ sea:{he:'לבן · תכלת אפרפר · עץ בהיר',c:['#f0eee9','#9db4bd','#c7a47b'],n:['לבן','תכלת אפרפר','עץ בהיר']},
+ mist:{he:'ערפל · כחול אפור · כחול לילה',c:['#e8ecef','#7c8fa3','#2e3a4a'],n:['ערפל','כחול אפור','כחול לילה']},
+ mono:{he:'לבן · פחם · עץ חם',c:['#f1f0ec','#3a3b3d','#b98a5a'],n:['לבן','פחם','עץ חם']},
+ coffee:{he:'בז׳ · קקאו · שחור',c:['#ddd0ba','#7a5c45','#2b2b2b'],n:['בז׳','קקאו','שחור']},
+ plum:{he:'אבן · שזיף · נחושת',c:['#e9e3dc','#6a4a5a','#c58b6a'],n:['אבן','שזיף','נחושת']},
+ forest:{he:'קרם · ירוק יער · כתום חרוק',c:['#e7e2d6','#3f5a4a','#c7794f'],n:['קרם','ירוק יער','כתום חרוק']}};
+const CUSTOM_PAL=['#ece6da','#8a9a86','#b5654a'];
+for(const t in PER_DEF)Object.assign(PER_DEF[t],{palette:'auto',pal:CUSTOM_PAL.slice(),opens:''});
 let F=store.get('ikea-room-form2');
 if(!F){const old=store.get('ikea-room-form')||{};F={room:'living',renter:old.renter!==undefined?old.renter:true,likes:old.likes||['natural','warm'],dis:old.dis||[],per:{}};
   for(const t in PER_DEF)F.per[t]=Object.assign({},PER_DEF[t]);
   for(const k of Object.keys(PER_DEF.living))if(old[k]!==undefined)F.per.living[k]=old[k];}
 for(const t in PER_DEF)F.per[t]=Object.assign({},PER_DEF[t],F.per[t]||{});
+const HEXRE=/^#[0-9a-f]{6}$/i;
+function cleanPal(p){if(!p||typeof p!=='object')return;
+  if(!Array.isArray(p.pal)||p.pal.length!==3||!p.pal.every(h=>typeof h==='string'&&HEXRE.test(h)))p.pal=CUSTOM_PAL.slice();
+  if(p.palette!=='auto'&&p.palette!=='custom'&&!Object.prototype.hasOwnProperty.call(PALETTES,p.palette))p.palette='auto';
+  if(typeof p.opens!=='string'||!/^[a-z]+$/.test(p.opens))p.opens=''}
+for(const t in PER_DEF)cleanPal(F.per[t]);
 const P=()=>F.per[F.room];
 let photoFile=null;
 function saveForm(){store.set('ikea-room-form2',F)}
@@ -170,7 +189,16 @@ function renderRoomForm(){
   chipGroup($('#dirChips'),DIRS,()=>p.dir,false,k=>{p.dir=k});
   chipGroup($('#keepChips'),R.keeps,()=>p.keep,true,k=>{p.keep=toggleIn(p.keep,k);renderExtras()});
   const b=$('#budget');b.value=p.budget;$('#budgetOut').textContent=ils(p.budget);b.oninput=()=>{p.budget=+b.value;$('#budgetOut').textContent=ils(p.budget);saveForm()};
+  renderPalette(p);
+  const om={'':'לא'};for(const [k,R2] of Object.entries(ROOMS))if(k!==t)om[k]=R2.he;
+  chipGroup($('#opensChips'),om,()=>p.opens||'',false,k=>{p.opens=k});
   renderExtras();
+}
+function renderPalette(p){
+  const box=$('#palChips');box.innerHTML='';
+  const mk=(id,label,cols)=>{const b=document.createElement('button');b.type='button';b.className='chip';b.setAttribute('aria-pressed',String(p.palette===id));b.innerHTML=(cols?`<span class="sw3">${cols.map(c=>`<i style="background:${c}"></i>`).join('')}</span>`:'')+esc(label);b.onclick=()=>{p.palette=id;saveForm();renderPalette(p)};box.appendChild(b)};
+  mk('auto','אוטומטי',null);for(const [k,v] of Object.entries(PALETTES))mk(k,v.he,v.c);mk('custom','צבעים משלי',p.pal);
+  const cu=$('#palCustom');if(p.palette==='custom'){cu.className='';cu.style.cssText='display:flex;gap:10px;margin-top:10px';cu.innerHTML=['בסיס (60%)','משני (30%)','הדגשה (10%)'].map((l,i)=>`<label class="cpick"><input type="color" value="${p.pal[i]}" data-i="${i}">${l}</label>`).join('');cu.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{p.pal[+inp.dataset.i]=inp.value;saveForm();const sw=document.querySelector('#palChips .chip:last-child .sw3');if(sw&&sw.children[+inp.dataset.i])sw.children[+inp.dataset.i].style.background=inp.value})}else{cu.className='hidden';cu.style.cssText='';cu.innerHTML=''}
 }
 function renderExtras(){
   const t=F.room,p=P(),box=$('#extras');let h='';
@@ -216,6 +244,7 @@ function roomOf(){
     tv:p.tv||'none',uses:new Set(p.uses||[]),sleepers:p.sleepers||'couple',seats:p.seats||4,mode:p.mode||'refresh',shower:p.shower||'curtain',
     space:p.space||'room',work:p.work||'monitor',age:p.age||'school',kids:+p.kids||1,bUses:new Set(p.bUses||[]),bSeats:+p.bSeats||2,floor:p.floor||'keep'};
   if(t==='balcony')r.winWall='none';
+  r.pal=resolvePal(p);r.opens=p.opens||'';
   r.tvd=t==='living'?(r.tv==='unit'?40:r.tv==='wall'?8:0):0;
   r.keptSofa=t==='living'&&r.keep.has('sofa')?{fw:Math.max(80,p.ksW||200),fd:Math.max(50,p.ksD||90)}:null;
   return r;
@@ -297,9 +326,42 @@ function qtyFor(slot,x,sel,room){
   return 1;
 }
 
+// ================= colour palettes =================
+function resolvePal(p){if(!p)return null;if(p.palette==='custom'&&Array.isArray(p.pal)&&p.pal.length===3)return{id:'custom',he:'הצבעים שלך',c:p.pal.slice(),n:['צבע הבסיס','הצבע המשני','צבע ההדגשה']};
+  const v=PALETTES[p.palette];return v?{id:p.palette,he:v.he,c:v.c,n:v.n}:null}
+function labOf(h){const n=parseInt(h.slice(1),16);const [r,g,b]=[n>>16&255,n>>8&255,n&255].map(v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)});
+  const x=(r*.4124+g*.3576+b*.1805)/.95047,y=r*.2126+g*.7152+b*.0722,z=(r*.0193+g*.1192+b*.9505)/1.08883;const f=t=>t>.008856?Math.cbrt(t):7.787*t+16/116;return[116*f(y)-16,500*(f(x)-f(y)),200*(f(y)-f(z))]}
+function dE(a,b){const p=labOf(a),q=labOf(b);return Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])}
+const tempOf=c=>{const w=[.6,.3,.1];const T=c.reduce((s,h,i)=>s+w[i]*labOf(h)[2],0);return T>=8?'warm':T<=3?'cool':'neutral'};
+const PAL_CAP=26,PAL_DIV=1.5,PAL_STYLE_MISS=2;
+const PERMS=[[0,1,2],[1,0,2],[0,2,1]];
+const PERM_NOTE=['בסיס רגוע, והצבע החזק במינון קטן.','הצבע המשני בתפקיד הראשי — נועז יותר.','ההדגשה מקבלת מקום גדול יותר — ניגודיות גבוהה.'];
+function palRank(style,room){const r=room.styleRank&&room.styleRank[style];return((r!==undefined?r:Object.keys(STYLES).indexOf(style))%3+3)%3}
+function palFor(style,room){if(!room.pal)return null;const i=palRank(style,room),pm=PERMS[i];return{i,c:pm.map(k=>room.pal.c[k]),n:pm.map(k=>room.pal.n[k])}}
+const PAL_ROLE={sofa:0,rug:0,blind:0,curtain:0,bedspread:0,pendant:0,tablelinen:0,bathmat:0,krug:0,orug:0,osofa:0,shower:0,
+ arm:1,duvet:1,towel:1,chair:1,bchair:1,pouf:1,cushion:1,ktextile:1,
+ cushion2:2,throw:2,vase:2,candle:2,ktowel:2,jars:2,opot:2,ocushion:2,klamp:2,olight:2,olight2:2,bset:2,bbox:2};
+function paletteFitCheck(c,room,out){if(!room.pal)return;const pf=palFor(c.style,room);let n=0,ok=0;const miss=[];
+  for(const k in c.sel){const e=c.sel[k];if(PAL_ROLE[k]===undefined||!e||e.keep||!BY[e.id]||!BY[e.id].hex)continue;const x=BY[e.id],r=PAL_ROLE[k],d=dE(x.hex,pf.c[r]);n++;if(d<=22)ok++;else if(d>=38)miss.push({d,he:(SLOTDEF(room.type)[k]||{he:k}).he,nm:x.n,role:pf.n[r]})}
+  if(n<3)return;miss.sort((a,b)=>b.d-a.d);const worst=miss.slice(0,2).map(m=>`${m.he} (${m.nm}) רחוק מ"${m.role}"`).join(', ');
+  if(ok/n>=0.6)out.push(['ok',`התאמה לפלטה: ${ok} מתוך ${n} פריטים בצבעים קרובים לפלטה שבחרת${worst?'. הכי רחוק: '+worst:''}.`]);
+  else out.push(['warn',`התאמה חלקית לפלטה: ${ok} מתוך ${n} פריטים קרובים לצבעים שבחרת${worst?' (הכי רחוק: '+worst+')':''}. הקטלוג של איקאה ישראל לא כולל בכל קטגוריה גוון קרוב — אפשר להשלים בצבע קיר, או בטקסטיל מחנות אחרת.`])}
+function harmonyChecks(room,out){const o=room.opens;if(!o||!ROOMS[o]||o===room.type)return;
+  const mine=room.pal,other=resolvePal(F.per[o]),oh=ROOMS[o].he,mh=ROOMS[room.type].he;if(!mine&&!other)return;
+  if(!mine){out.push(['warn',`הערת מעצב: ה${mh} פתוח ל${oh}, ושם נבחרה הפלטה "${other.he}". כדי שזה ירגיש כמו דירה אחת, כדאי לבחור פלטה קרובה גם כאן.`]);return}
+  if(!other){out.push(['warn',`הערת מעצב: ה${mh} פתוח ל${oh}, ושם עוד לא נבחרה פלטה. כדאי לבחור גם שם פלטה קרובה ל"${mine.he}", כדי שהחללים ירגישו כמו דירה אחת.`]);return}
+  const same=mine.c.every((h,i)=>dE(h,other.c[i])<8);
+  if(same){out.push(['ok',`הערת מעצב: אותה פלטה ב${mh} וב${oh} — רציפות מלאה בין החללים.`]);return}
+  const t1=tempOf(mine.c),t2=tempOf(other.c),TH={warm:'חם',cool:'קר'};
+  const shared=[];mine.c.forEach((h,i)=>other.c.forEach((g,j)=>{if(dE(h,g)<12&&!shared.includes(mine.n[i]))shared.push(mine.n[i])}));
+  if((t1==='warm'&&t2==='cool')||(t1==='cool'&&t2==='warm'))out.push(['warn',`הערת מעצב: ה${mh} בגוון ${TH[t1]} וה${oh} בגוון ${TH[t2]}. כשהחללים פתוחים זה לזה זה עלול להרגיש כמו שתי דירות שונות. כדי לחבר: חזרו כאן על הצבע "${other.n[0]}" מהפלטה של ה${oh} בפריט אחד או שניים (כרית, אגרטל), ושמרו על אותו גוון עץ ומתכת בשני החללים.`]);
+  else if(shared.length)out.push(['ok',`הערת מעצב: יש צבע משותף (${shared.join(', ')}) בין ה${mh} ל${oh} — זה מחבר בין החללים גם כשהפלטות שונות.`]);
+  else if(t1===t2&&t1!=='neutral')out.push(['ok',`הערת מעצב: שתי הפלטות בגוון ${TH[t1]} — זה מחבר גם כשהצבעים שונים. כדאי לחזור על פריט אחד בצבע "${other.n[0]}" גם כאן.`]);
+  else out.push(['ok',`הערת מעצב: לפחות אחת הפלטות ניטרלית, והמעבר בין החללים יהיה רך. לחיבור, חזרו על "${other.n[0]}" מהפלטה של ה${oh} בפריט קטן אחד.`])}
+
 // ================= scoring / builder =================
 function scoreItem(x,slot,style,room,sel){
-  let s=0;if(x.tags.includes(style)){s+=10;if(x.tags[0]===style)s+=2}else s-=6;
+  let s=0;if(x.tags.includes(style)){s+=10;if(x.tags[0]===style)s+=2}else s-=(room.pal&&PAL_ROLE[slot]!==undefined?PAL_STYLE_MISS:6);
   for(const k of room.likes){const L=LIKES[k];if(L&&L.cls.some(c=>x.cls.includes(c)))s+=1.2}
   for(const k of room.dis){const Dd=DISLIKES[k];if(!Dd)continue;if((Dd.cls&&Dd.cls.some(c=>x.cls.includes(c)))||(Dd.ids&&Dd.ids.includes(x.id)))s-=5}
   if(slot==='cushion2'){const b=itemOf(sel,'cushion',room);if(b&&b.id===x.id)s-=20;if(['bold','black','green','wood'].some(c=>x.cls.includes(c)))s+=1.5}
@@ -307,6 +369,7 @@ function scoreItem(x,slot,style,room,sel){
   if(room.renter&&[434].includes(x.id))s+=1;
   const heavy=['sofa','bed','wardrobe','vanity','kunit','mattress','dtable','desk','kbed','osofa'].includes(slot)?1000:['arm','coffee','dresser','cart','mcab','tallcab','ksink','ktap','chair','ochair','bookcase','kmattress','otable','bchair','lounger','kstorage','deck'].includes(slot)?500:250;
   s-=x.p*qtyFor(slot,x,sel,room)/heavy;
+  if(room.pal&&PAL_ROLE[slot]!==undefined){const pf=palFor(style,room);s-=Math.min(PAL_CAP,dE(x.hex,pf.c[PAL_ROLE[slot]])/PAL_DIV)}
   const f=fitCheck(x,slot,sel,room);return{s:s+f.bonus,ok:f.ok,why:f.why};
 }
 function candidates(slot,style,room,sel){const d=SLOTDEF(room.type)[slot];return CAT.filter(x=>catHas(d,x)).map(x=>Object.assign({x},scoreItem(x,slot,style,room,sel))).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s))}
@@ -357,14 +420,18 @@ function layoutLiving(room,sel){
   if(lamp){const lw=lamp.fw;const fR=W-(sx+sw)-(P.arm&&P.arm.face==='u'&&P.arm.x>sx?P.arm.w+2:0);const fL=sx-(P.side?P.side.w+2:0)-(P.arm&&P.arm.face==='u'&&P.arm.x<sx?P.arm.w+2:0);
     if(fR>=lw+2)P.floor={x:W-lw-2,y:D-lw-2,w:lw,h:lw,round:1};else if(fL>=lw+2)P.floor={x:2,y:D-lw-2,w:lw,h:lw,round:1};
     else if(P.arm&&P.arm.face!=='u'){const r=P.arm.face==='l';P.floor={x:r?W-lw-2:2,y:Math.max(tvd+2,P.arm.y-lw-2),w:lw,h:lw,round:1}}
-    else{P.floor={x:W-lw-2,y:tvd+2,w:lw,h:lw,round:1};notes.push('המנורה העומדת עוברת לפינה ליד הקיר ממול — אין מקום ליד הספה.')}}
+    else{P.floor={x:W-lw-2,y:tvd+2,w:lw,h:lw,round:1};notes.push('המנורה העומדת עוברת לפינה ליד הקיר ממול — אין מקום ליד הספה.')}
+    const blockers=['sofa','side','arm','coffee'].map(k=>P[k]).filter(Boolean);
+    if(P.floor&&blockers.some(b=>overlap(P.floor,b))){const cs=[{x:W-lw-2,y:tvd+2},{x:2,y:tvd+2},{x:W-lw-2,y:D-lw-2},{x:2,y:D-lw-2}].map(o=>({x:o.x,y:o.y,w:lw,h:lw,round:1}));
+      const o=freeSpot(room,cs,blockers);if(o){P.floor=o;if(!notes.some(n=>/המנורה העומדת/.test(n)))notes.push('המנורה העומדת עוברת לפינה פנויה — אין מקום ליד הספה והכורסה.')}
+      else{delete P.floor;notes.push('אין מקום פנוי למנורה העומדת — מנורת שולחן או מנורת קיר יתאימו יותר.')}}}
   if(pouf){const pw=pouf.fw,ph=pouf.fd;if(!P.coffee)P.pouf={x:sx+sw/2-pw/2,y:frontY-ph,w:pw,h:ph,round:pw===ph};
     else{const aR=P.arm&&P.arm.x>W/2;const x=aR?P.coffee.x-pw-14:P.coffee.x+P.coffee.w+14;const y=P.coffee.y+P.coffee.h/2-ph/2;
       if(x>=4&&x+pw<=W-4&&!(P.arm&&overlap({x,y,w:pw,h:ph},P.arm)))P.pouf={x,y,w:pw,h:ph,round:pw===ph};else{P.pouf={x:P.coffee.x+P.coffee.w-pw*0.7,y:P.coffee.y+P.coffee.h-ph*0.35,w:pw,h:ph,round:pw===ph,under:1};notes.push('ההדום נכנס חלקית מתחת לשולחן כשלא בשימוש.')}}}
   if(rug){const rw=rug.fw,rh=rug.fd;let ry=sy+20-rh;if(ry<tvd+10)ry=tvd+10;let rx=Math.min(Math.max(10,sx+sw/2-rw/2),W-10-rw);P.rug={x:rx,y:ry,w:rw,h:rh,under:2}}
   const taken=()=>['sofa','side','arm','floor','pouf','coffee'].map(k=>P[k]).filter(Boolean);
   if(plant){const s=plant.fw;const o=freeSpot(room,[{x:2,y:tvd+2},{x:W-s-2,y:tvd+2},{x:2,y:D-s-2},{x:W-s-2,y:D-s-2}].map(o=>({x:o.x,y:o.y,w:s,h:s,round:1})),taken());if(o)P.plant=o;else notes.push('אין פינה פנויה לצמח על הרצפה — אפשר צמח קטן על מדף.')}
-  if(mirror&&mirror.id===167){const o=freeSpot(room,[{x:2,y:tvd+2,w:52,h:12},{x:W-54,y:tvd+2,w:52,h:12}],taken());if(o)P.mirror=o}
+  if(mirror&&mirror.id===167){const o=freeSpot(room,[{x:2,y:tvd+2,w:52,h:12},{x:W-54,y:tvd+2,w:52,h:12}],taken().concat(P.plant?[P.plant]:[]));if(o)P.mirror=o}
   return{pos:P,notes,fixed};
 }
 function layoutBedroom(room,sel){
@@ -600,7 +667,7 @@ function checks(c,room){const L=layout(room,c.sel);const out=({living:checksLivi
   const ks=Object.keys(L.pos).filter(k=>L.pos[k]&&typeof L.pos[k]==='object'&&!L.pos[k].under&&k!=='rug');const ov=[];for(let i=0;i<ks.length;i++)for(let j=i+1;j<ks.length;j++)if(overlap(L.pos[ks[i]],L.pos[ks[j]]))ov.push(ks[i]+'/'+ks[j]);
   for(const f of L.fixed||[])for(const k of ks)if(overlap(L.pos[k],f))ov.push(k+'/'+f.label);
   if(ov.length)out.push(['bad','חפיפה בתוכנית: '+ov.map(s=>s.split('/').map(k=>(SLOTDEF(room.type)[baseKey(k)]||{he:k}).he).join(' ו')).join(', ')+'.']);
-  for(const n of L.notes)out.push(['warn',n]);return{L,out}}
+  for(const n of L.notes)out.push(['warn',n]);paletteFitCheck(c,room,out);harmonyChecks(room,out);return{L,out}}
 function checksLiving(c,room,L){const P=L.pos,out=[];const {W,D,tvd}=room;const it=k=>itemOf(c.sel,k,room);const sofa=it('sofa');
   if(!sofa){out.push(['bad','אין ספה בעיצוב.']);return out}
   out.push(sofa.fw<=W-10?['ok','הספה ('+sofa.fw+' ס״מ) נכנסת לקיר של '+W+' ס״מ ומשאירה '+Math.round(W-sofa.fw)+' ס״מ בצדדים.']:['bad','הספה רחבה מהקיר.']);
@@ -683,15 +750,16 @@ function planSVG(c,room){
 
 // ================= app state / render =================
 let ROOM=null,CONCEPTS=[],ACTIVE=0,sample=null,downloads=null,sampleImages=false;
-function generateLocal(){ROOM=roomOf();CONCEPTS=chooseStyles(ROOM).map(k=>localConcept(k,ROOM));ACTIVE=0;renderAll()}
+function generateLocal(){ROOM=roomOf();const ss=chooseStyles(ROOM);ROOM.styleRank=Object.fromEntries(ss.map((k,i)=>[k,i]));CONCEPTS=ss.map(k=>localConcept(k,ROOM));ACTIVE=0;renderAll()}
 function renderAll(){renderTabs();renderConcept()}
 function renderTabs(){const el=$('#tabs');el.innerHTML='';CONCEPTS.forEach((c,i)=>{const st=STYLES[c.style];const b=document.createElement('button');b.className='tab';b.setAttribute('role','tab');b.setAttribute('aria-selected',String(i===ACTIVE));
-  b.innerHTML=`<span class="tn">${esc(c.title||st.name)}</span><span class="td">${esc(st.designer)} · ${ils(totalOf(c.sel))}</span><span class="sw">${st.pal.map(p=>`<i style="background:${p[0]}"></i>`).join('')}</span>`;b.onclick=()=>{ACTIVE=i;renderAll()};el.appendChild(b)})}
+  b.innerHTML=`<span class="tn">${esc(c.title||st.name)}</span><span class="td">${esc(st.designer)} · ${ils(totalOf(c.sel))}</span><span class="sw">${(ROOM&&ROOM.pal?palFor(c.style,ROOM).c:st.pal.map(p=>p[0])).map(h=>`<i style="background:${h}"></i>`).join('')}</span>`;b.onclick=()=>{ACTIVE=i;renderAll()};el.appendChild(b)})}
 function renderConcept(){
   const c=CONCEPTS[ACTIVE];if(!c)return;const st=STYLES[c.style];const room=ROOM;const R=ROOMS[room.type];const tot=totalOf(c.sel);const over=tot>room.budget;const {out}=checks(c,room);
   $('#rhTitle').textContent='שלושה כיוונים ל'+R.he+' שלך';
   let h=`<h2 style="margin:0">${esc(c.title||st.name)}</h2><p class="designer">בהשראת ${esc(st.designer)} (${esc(st.city)})${c.src==='ai'?' · עוצב אישית ע״י Claude':c.src==='shared'?' · עיצוב ששותף איתך':''}</p><p class="why">${esc(c.why||st.idea)}</p>`;
-  h+=`<div class="pal">${st.pal.map(p=>`<div style="background:${p[0]};color:${textOn(p[0])};flex:${p[2].startsWith('60')?3:p[2].startsWith('30')?2:1}"><b>${esc(p[1])}</b>${esc(p[2])}</div>`).join('')}</div><p class="hint">${esc(DIR_NOTE[room.dir]||DIR_NOTE.u)}</p>`;
+  const up=room.pal?palFor(c.style,room):null;const barPal=up?up.c.map((hx,i)=>[hx,up.n[i],['60% בסיס','30% משני','10% הדגשה'][i]]):st.pal;
+  h+=(up?`<p class="hint" style="margin:10px 0 6px">הפלטה שבחרת ('${esc(room.pal.he)}') בפרשנות של ${esc(st.designer)}: ${esc(PERM_NOTE[up.i])}</p>`:'')+`<div class="pal">${barPal.map(p=>`<div style="background:${p[0]};color:${textOn(p[0])};flex:${p[2].startsWith('60')?3:p[2].startsWith('30')?2:1}"><b>${esc(p[1])}</b>${esc(p[2])}</div>`).join('')}</div><p class="hint">${esc(DIR_NOTE[room.dir]||DIR_NOTE.u)}</p>`;
   h+=`<div class="total"><span class="muted small">סה״כ לקנייה${c.dropped&&c.dropped.length?' · ויתרנו על: '+c.dropped.map(k=>SLOTDEF(room.type)[k].he).join(', '):''}</span><b>${ils(tot)}</b></div><div class="bar${over?' over':''}"><i style="width:${Math.min(100,tot/room.budget*100)}%"></i></div><p class="hint">${over?'חורג מהתקציב ב-'+ils(tot-room.budget):'נשארים '+ils(room.budget-tot)+' מתוך '+ils(room.budget)}</p>`;
   if(over)h+=`<button class="btn sm ghost" id="fitB" style="margin-top:8px">התאם לתקציב</button>`;
   h+=`<div class="planbox">${planSVG(c,room)}</div><p class="hint">תוכנית מלמעלה בקנה מידה (משבצת = 10 ס״מ). ${esc(R.plan||((R.mainWall==='הספה'?'קיר הספה':R.mainWall==='ראש המיטה'?'קיר ראש המיטה':R.mainWall==='הכיור'?'קיר הכיור':'פינת האוכל')+' למטה.'))}</p>`;
@@ -746,7 +814,7 @@ Furnish it in a ${st.en} style (in the spirit of ${st.designer}) using ONLY the 
 Room: ${room.W} x ${room.D} cm. ${place}
 Products:
 ${lines.join('\n')}
-Colour palette: ${st.pal.map(p=>p[0]).join(', ')} (60/30/10). Warm 2700K light. Photorealistic interior photograph, no text, no people.`}
+Colour palette: ${(palFor(c.style,room)||st).c?palFor(c.style,room).c.join(', '):st.pal.map(p=>p[0]).join(', ')} (60/30/10). Warm 2700K light. Photorealistic interior photograph, no text, no people.`}
 async function geminiSheet(c){
   const st=STYLES[c.style];const items=[];for(const s of activeSlots(ROOM,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;items.push({x:BY[e.id],q:e.qty||1})}
   const cols=4,cw=300,ch=360,pad=24,head=150,rows=Math.ceil(items.length/cols);const cv=document.createElement('canvas');cv.width=cols*cw+pad*2;cv.height=head+rows*ch+pad;const g=cv.getContext('2d');
@@ -777,8 +845,8 @@ function feedback(c){const url=c?shareUrl(c):SITE;const txt=`משוב על "חד
   openSheet(`<div class="hd"><h3>משוב</h3><button class="btn sm ghost" id="closeS">סגירה</button></div><p class="muted">מה אהבתם, מה הרגיש לא נכון, מה חסר? ההודעה נפתחת ב-WhatsApp עם קישור לעיצוב שלכם — בוחרים למי לשלוח.</p><div class="actions"><a class="btn" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">שליחה ב-WhatsApp</a><button class="btn ghost" id="fbCopy">העתקת ההודעה</button></div>`);
   $('#fbCopy').onclick=()=>copyText(txt)}
 function loadShared(){const m=location.hash.match(/^#d=(.+)$/);if(!m)return false;let d;try{d=JSON.parse(b64u.dec(m[1]))}catch(e){return false}
-  if(!d||!ROOMS[d.r]||!STYLES[d.s])return false;F.room=d.r;F.per[d.r]=Object.assign({},PER_DEF[d.r],d.p||{});if(typeof d.rt==='boolean')F.renter=d.rt;$('#renter').checked=F.renter;renderRoomForm();
-  ROOM=roomOf();const sel={};for(const s of ROOMS[d.r].slots){const v=d.sel&&d.sel[s.k];sel[s.k]=v==='k'?{keep:true}:Array.isArray(v)&&BY[v[0]]&&catHas(s,BY[v[0]])?{id:v[0],qty:Math.max(1,Math.min(12,+v[1]||1)),lock:true}:null}
+  if(!d||!ROOMS[d.r]||!STYLES[d.s])return false;F.room=d.r;F.per[d.r]=Object.assign({},PER_DEF[d.r],d.p||{});cleanPal(F.per[d.r]);if(typeof d.rt==='boolean')F.renter=d.rt;$('#renter').checked=F.renter;renderRoomForm();
+  F.per[d.r].opens='';ROOM=roomOf();ROOM.styleRank=Object.fromEntries([d.s].concat(chooseStyles(ROOM).filter(k=>k!==d.s).slice(0,2)).map((k,i)=>[k,i]));const sel={};for(const s of ROOMS[d.r].slots){const v=d.sel&&d.sel[s.k];sel[s.k]=v==='k'?{keep:true}:Array.isArray(v)&&BY[v[0]]&&catHas(s,BY[v[0]])?{id:v[0],qty:Math.max(1,Math.min(12,+v[1]||1)),lock:true}:null}
   const shared={style:d.s,sel,src:'shared',room:d.r,title:String(d.t||'').slice(0,40),why:String(d.w||'').slice(0,400)};
   CONCEPTS=[shared].concat(chooseStyles(ROOM).filter(k=>k!==d.s).slice(0,2).map(k=>localConcept(k,ROOM)));ACTIVE=0;renderAll();
   $('#results').classList.remove('hidden');setTimeout(()=>$('#results').scrollIntoView({block:'start'}),50);toast('נפתח העיצוב ששותף איתך');return true}
@@ -795,7 +863,7 @@ const RULES={living:'Sofa depth + 42 + coffee-table depth + 60 must fit the room
  kids:'Age 2-5: junior/extendable bed, small table and chairs, no loft or top bunk. Age 6-12: desk and student chair. Two kids: bunk bed with two mattresses. Mattress size must equal the bed size. Leave a free play area. Low, reachable storage.',
  balcony:'Outdoor products only. Keep a 70 cm path from the door. Seats = sofa seats + chairs. Nothing climbable pressed against the railing.'};
 function aiPrompt(room){const R=ROOMS[room.type];const lines=[];
-  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd:'-'} | ${x.tags}`)}
+  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd:'-'} | ${x.tags}${room.pal?' | '+x.hex:''}`)}
   const styles=Object.entries(STYLES).map(([k,v])=>`${k}: ${v.name} — lens ${v.designer}. ${v.idea}`).join('\n');
   const extra={living:`TV: ${room.tv}. Uses: ${[...room.uses].join(', ')}.`,bedroom:`Sleepers: ${room.sleepers}.`,kitchen:`Seats: ${room.seats}. Mode: ${room.mode}.`,bath:`Shower: ${room.shower}. Mode: ${room.mode}.`,office:`Space: ${room.space}. Work: ${room.work}.`,kids:`Age: ${room.age}. Kids: ${room.kids}.`,balcony:`Uses: ${[...room.bUses].join(', ')}. Seats: ${room.bSeats}. Floor: ${room.floor}.`}[room.type];
   const slotsList=R.slots.filter(s=>!s.on||s.on(room,{})).map(s=>s.k).join(', ');
@@ -803,6 +871,7 @@ function aiPrompt(room){const R=ROOMS[room.type];const lines=[];
 ROOM: main wall ${room.W} cm; depth ${room.D} cm. Window ${room.winWall==='none'?'none':'on '+room.winWall+' wall, '+room.winW+' cm'}, faces ${DIRS[room.dir]}. Door: ${room.door}. Renter: ${room.renter?'yes':'no'}. ${extra}
 Keep from home (do not buy): ${[...room.keep].join(', ')||'nothing'}. Likes: ${room.likes.map(k=>LIKES[k].he).join(', ')||'-'}. Dislikes: ${room.dis.map(k=>DISLIKES[k].he).join(', ')||'-'}.
 Budget per concept: ${room.budget} ILS (sum of prices × quantities).
+${room.pal?`USER PALETTE (chosen by the user, must drive the colours): base ${room.pal.c[0]} ${room.pal.n[0]}, secondary ${room.pal.c[1]} ${room.pal.n[1]}, accent ${room.pal.c[2]} ${room.pal.n[2]}. Pick products whose hex (last column) is close to the role colour of their slot. Concept 1 uses the palette as given (60/30/10); concept 2 swaps base and secondary; concept 3 swaps secondary and accent. Each concept still follows a different designer style.`:''}
 ${photoFile&&sampleImages?'The attached photo is the room: read its light, floor, wall colour and fixed elements and adapt.':''}
 TASK: 3 concepts, each a DIFFERENT style key (best fit for likes/dislikes):
 ${styles}
@@ -823,7 +892,7 @@ function applyAi(res,room){let fixed=0;const out=[],seen=new Set();const list=re
       else{fixed++;const cd=pick(s.k,style,room,sel);sel[s.k]=cd?{id:cd.x.id,qty:qtyFor(s.k,cd.x,sel,room)}:null}}
     out.push({style,sel,src:'ai',room:room.type,title:typeof rc.title==='string'?rc.title.slice(0,40):'',why:typeof rc.why==='string'?rc.why.slice(0,400):'',tips:Array.isArray(rc.tips)?rc.tips.filter(t=>typeof t==='string').slice(0,4).map(t=>t.slice(0,220)):[]});if(out.length===3)break}
   for(const k of chooseStyles(room).concat(Object.keys(STYLES))){if(out.length>=3)break;if(!out.some(c=>c.style===k))out.push(localConcept(k,room))}
-  CONCEPTS=out;ROOM=room;$('#results').classList.remove('hidden');return{fixed}}
+  CONCEPTS=out;ROOM=room;room.styleRank=Object.fromEntries(out.map((c,i)=>[c.style,i]));$('#results').classList.remove('hidden');return{fixed}}
 
 // ================= measure from a photo (A4 reference) =================
 const A4CM={long:29.7,short:21,two:59.4};
