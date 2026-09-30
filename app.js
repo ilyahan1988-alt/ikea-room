@@ -205,6 +205,7 @@ function initForm(){
   chipGroup($('#disChips'),DISLIKES,()=>F.dis,true,k=>{F.dis=toggleIn(F.dis,k)},true);
   $('#photo').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;photoFile=f;const u=URL.createObjectURL(f);$('#phPrev').outerHTML='<img id="phPrev" alt="התמונה שלך" src="'+u+'">';refreshAi()};
   $('#go').onclick=()=>{generateLocal();$('#results').classList.remove('hidden');$('#results').scrollIntoView({behavior:'smooth',block:'start'})};
+  $('#measB').onclick=openMeasure;
   renderRoomForm();
 }
 
@@ -824,6 +825,52 @@ function applyAi(res,room){let fixed=0;const out=[],seen=new Set();const list=re
   for(const k of chooseStyles(room).concat(Object.keys(STYLES))){if(out.length>=3)break;if(!out.some(c=>c.style===k))out.push(localConcept(k,room))}
   CONCEPTS=out;ROOM=room;$('#results').classList.remove('hidden');return{fixed}}
 
+// ================= measure from a photo (A4 reference) =================
+const A4CM={long:29.7,short:21,two:59.4};
+const measCm=(refPx,refCm,segPx)=>refPx>0?segPx*refCm/refPx:0;
+const ptDist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function openMeasure(){
+  const st={img:null,pts:[],ref:'long',drag:-1};
+  openSheet(`<div class="hd"><div><h3>מדידה מתמונה</h3><p class="muted small">החישוב קורה במכשיר שלכם — התמונה לא נשלחת לשום מקום</p></div><button class="btn sm ghost" id="closeS">סגירה</button></div>
+  <ol class="tips"><li>מדביקים דף A4 על הקיר שרוצים למדוד (נייר דבק מסכות מספיק). לדיוק טוב יותר — שני דפים בשורה.</li><li>מצלמים את הקיר ישר מלפנים, כשכל הקיר נכנס בתמונה.</li><li>מסמנים את שני קצות הדף, ואז את שני קצות הקיר. הנקודות ניתנות לגרירה לכיוונון.</li></ol>
+  <div class="actions"><label class="btn sm" for="measFile">בחירת תמונה</label><input id="measFile" type="file" accept="image/*" class="hidden">${photoFile?'<button class="btn sm ghost" id="measUse">התמונה שבחרתי לחדר</button>':''}</div>
+  <div id="measBox" class="hidden"><div class="chips" id="measRef" style="margin:12px 0 8px"></div>
+  <p class="hint" id="measStep" style="margin:0 0 8px"></p>
+  <canvas id="measCv" style="width:100%;display:block;touch-action:none;border-radius:12px;background:#e9e5dc"></canvas>
+  <div id="measOut" style="margin-top:12px"></div></div>`);
+  const cv=$('#measCv'),out=$('#measOut'),stepEl=$('#measStep');
+  const refMap={long:'צלע ארוכה של דף (29.7)',short:'צלע קצרה (21)',two:'שני דפים בשורה (59.4) — מדויק יותר'};
+  chipGroup($('#measRef'),refMap,()=>st.ref,false,k=>{st.ref=k;render()});
+  const toImg=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}};
+  function render(){
+    const g=cv.getContext('2d');if(!g||!st.img)return;g.drawImage(st.img,0,0,cv.width,cv.height);
+    const rr=Math.max(9,cv.width/80),lw=Math.max(3,cv.width/360);
+    const seg=(a,b,col)=>{if(!a||!b)return;g.strokeStyle=col;g.lineWidth=lw;g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke()};
+    seg(st.pts[0],st.pts[1],'#ff8a00');seg(st.pts[2],st.pts[3],'#18b26b');
+    st.pts.forEach((q,i)=>{g.fillStyle=i<2?'#ff8a00':'#18b26b';g.strokeStyle='#fff';g.lineWidth=lw;g.beginPath();g.arc(q.x,q.y,rr,0,7);g.fill();g.stroke()});
+    const n=st.pts.length;stepEl.textContent=n<2?'שלב 1: סמנו את שני הקצוות של דף ה-A4 ('+refMap[st.ref]+').':n<4?'שלב 2: סמנו את שני הקצוות של הקיר (או של כל מה שרוצים למדוד).':'';
+    let h='';
+    if(n===4){const refPx=ptDist(st.pts[0],st.pts[1]),cm=measCm(refPx,A4CM[st.ref],ptDist(st.pts[2],st.pts[3]));
+      if(refPx<cv.width*0.05)h+=`<p class="hint">הדף קטן בתמונה, וסימון לא מדויק בכמה פיקסלים משנה את התוצאה. הדביקו שני דפים בשורה ובחרו "שני דפים", או התקרבו לקיר.</p>`;
+      h+=`<div class="total"><span class="muted small">אורך משוער</span><b>${Math.round(cm)} ס״מ</b></div><p class="hint">דיוק טיפוסי ±5% כשהדף והקיר באותו מישור והצילום ישר. בדקו עם מטר אם זה חלל צפוף.</p>
+      <div class="actions"><button class="btn sm" id="measW">להזין כאורך</button><button class="btn sm" id="measD">להזין כעומק</button><button class="btn sm ghost" id="measMore">מדידה נוספת</button></div>`}
+    else if(n>=2)h=`<div class="actions"><button class="btn sm ghost" id="measUndo">ביטול נקודה</button></div>`;
+    else if(n===1)h=`<div class="actions"><button class="btn sm ghost" id="measUndo">ביטול נקודה</button></div>`;
+    out.innerHTML=h;
+    const put=id=>{const cm=Math.round(measCm(ptDist(st.pts[0],st.pts[1]),A4CM[st.ref],ptDist(st.pts[2],st.pts[3])));if(cm<40||cm>1200){toast('התוצאה ('+cm+' ס״מ) נראית לא הגיונית — נסו שוב');return}
+      const p=P();p[id]=cm;$('#'+id).value=cm;saveForm();closeSheet();toast((id==='W'?'האורך':'העומק')+' עודכן: '+cm+' ס״מ')};
+    const w=$('#measW');if(w){w.onclick=()=>put('W');$('#measD').onclick=()=>put('D');$('#measMore').onclick=()=>{st.pts=st.pts.slice(0,2);render()}}
+    const u=$('#measUndo');if(u)u.onclick=()=>{st.pts.pop();render()};
+  }
+  function load(file){if(!file)return;const url=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{st.img=im;const sc=Math.min(1,1600/Math.max(im.naturalWidth,im.naturalHeight));cv.width=Math.round(im.naturalWidth*sc);cv.height=Math.round(im.naturalHeight*sc);st.pts=[];$('#measBox').classList.remove('hidden');render();URL.revokeObjectURL(url)};
+    im.onerror=()=>toast('לא הצלחתי לפתוח את התמונה');im.src=url}
+  $('#measFile').onchange=e=>load(e.target.files&&e.target.files[0]);const mu=$('#measUse');if(mu)mu.onclick=()=>load(photoFile);
+  cv.onpointerdown=e=>{if(!st.img)return;e.preventDefault();const q=toImg(e);const thr=cv.width/16;let bi=-1,bd=thr;st.pts.forEach((a,i)=>{const d=ptDist(a,q);if(d<bd){bd=d;bi=i}});
+    if(bi>=0)st.drag=bi;else if(st.pts.length<4){st.pts.push(q);st.drag=st.pts.length-1}else return;try{cv.setPointerCapture(e.pointerId)}catch(_){}render()};
+  cv.onpointermove=e=>{if(st.drag<0)return;st.pts[st.drag]=toImg(e);render()};
+  cv.onpointerup=cv.onpointercancel=()=>{st.drag=-1};
+}
 // ================= boot =================
 initForm();
 loadShared();
