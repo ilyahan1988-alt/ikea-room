@@ -1,8 +1,25 @@
 "use strict";
 // ================= data =================
-const ROWS=[...window.CAT_RAW,...(window.CAT_RAW2||[]),...(window.CAT_RAW3||[]),...(window.CAT_RAW4||[])];
-const CAT=ROWS.map(r=>({id:r[0],slot:r[1],tags:r[2],n:r[3],v:r[4],p:r[5],u:r[6],fw:r[7],fd:r[8],hex:r[9],est:!!r[10],h:r[11]||0,wall:!!r[12]}));
+const ROWS=[...window.CAT_RAW,...(window.CAT_RAW2||[]),...(window.CAT_RAW3||[]),...(window.CAT_RAW4||[]),...(window.CAT_RAW5||[])];
+const CAT=ROWS.map(r=>({id:r[0],slot:r[1],tags:r[2],n:r[3],v:r[4],p:r[5],u:r[6],fw:r[7],fd:r[8],hex:r[9],est:!!r[10],h:r[11]||0,wall:!!r[12],sd:r[13]||0,cw:r[14]||0}));
 const BY=Object.fromEntries(CAT.map(x=>[x.id,x]));
+// L-shaped sofas (corner / chaise): fw = overall width along the wall, fd = overall depth, sd = depth of the back part, cw = width of the return leg
+const isL=x=>!!(x&&!x.keep&&x.sd&&x.cw);
+const isCorner=x=>isL(x)&&/corner/.test(x.u);
+const lRef=x=>x.fw-x.cw+30;
+function lOrient(x,room){const {W,D,tvd}=room;const opts=[{w:x.fw,d:x.fd,swap:0}];if(isCorner(x)&&x.fw!==x.fd)opts.push({w:x.fd,d:x.fw,swap:1});
+  let why='רחבה מהקיר';
+  for(const o of opts){if(o.w>W-10){why='רחבה מהקיר';continue}if(x.sd>D-tvd-SEAT_GAP-MIN_PASS||o.d>D-tvd-MIN_PASS){why='עמוקה מדי לחדר';continue}return o}
+  return{fail:why}}
+function lGeom(x,room){const o=lOrient(x,room);if(o.fail)return null;const {W,D}=room;const sd=x.sd,cw=x.cw,ld=Math.max(o.d,sd+10);
+  let side=room.cornerSide==='left'?'l':room.cornerSide==='right'?'r':null;
+  if(!side){let sl=0,sr=0;const dr=room.door;if(dr&&dr!=='none'&&dr[0]==='b'){if(dr[1]==='l')sl-=3;else sr-=3}if(room.winWall==='left')sl-=1;else if(room.winWall==='right')sr-=1;side=sl>sr?'l':'r'}
+  const dB=doorBox(room);const hitsDoor=sd_=>{if(!dB)return false;const x0=sd_==='l'?2:W-o.w-2;return overlap({x:x0,y:D-sd,w:o.w,h:sd},dB)||overlap({x:sd_==='l'?x0:x0+o.w-cw,y:D-ld,w:cw,h:ld},dB)};
+  if(hitsDoor(side)&&!hitsDoor(side==='l'?'r':'l'))side=side==='l'?'r':'l';
+  const sx=side==='l'?2:W-o.w-2;
+  const leg={x:side==='l'?sx:sx+o.w-cw,y:D-ld,w:cw,h:ld-sd};
+  const nx0=side==='l'?sx+cw:sx,nx1=side==='l'?sx+o.w:sx+o.w-cw;
+  return{o,side,sx,sd,sw:o.w,ld,leg,nx0,nx1,nw:nx1-nx0,cx:(nx0+nx1)/2,door:hitsDoor(side)}}
 const nomW=x=>{const m=String(x.v).match(/(\d{2,3})x(\d{3})/);return m?+m[1]:0};
 
 const STYLES={
@@ -136,7 +153,7 @@ const SLOTDEF=type=>Object.fromEntries(ROOMS[type].slots.map(s=>[s.k,s]));
 
 // ================= form =================
 const PER_DEF={
- living:{W:280,D:200,winWall:'sofa',winW:120,door:'none',dir:'u',keep:[],budget:5000,tv:'wall',uses:['tv','host','relax'],ksW:200,ksD:90},
+ living:{W:280,D:200,winWall:'sofa',winW:120,door:'none',dir:'u',keep:[],budget:5000,tv:'wall',uses:['tv','host','relax'],ksW:200,ksD:90,sofaType:'any',cornerSide:'auto'},
  bedroom:{W:320,D:300,winWall:'left',winW:120,door:'tr',dir:'u',keep:[],budget:5000,sleepers:'couple'},
  kitchen:{W:260,D:300,winWall:'left',winW:100,door:'br',dir:'u',keep:[],budget:3000,seats:4,mode:'refresh'},
  bath:{W:200,D:180,winWall:'none',winW:60,door:'tl',dir:'u',keep:[],budget:2000,mode:'refresh',shower:'curtain'},
@@ -210,6 +227,7 @@ function renderPalette(p){
 function renderExtras(){
   const t=F.room,p=P(),box=$('#extras');let h='';
   if(t==='living'){h+=`<label class="f"><span>טלוויזיה</span><select id="tv"><option value="wall">על הקיר / מדף צף</option><option value="unit">על מזנון (עומק 40)</option><option value="none">אין</option></select></label><label class="f"><span>בשביל מה החדר</span></label><div class="chips" id="useChips"></div>`;
+    if(!p.keep.includes('sofa'))h+=`<label class="f"><span>סוג ספה</span></label><div class="chips" id="sofaTypeChips"></div>${p.sofaType==='corner'?`<label class="f"><span>באיזה צד הפינה (כמו שרואים בשרטוט)</span></label><div class="chips" id="cornerSideChips"></div>`:''}<p class="hint">ספה פינתית או עם שזלונג צריכה חדר גדול יותר. ב״כל סוג״ האפליקציה תציע פינתית רק כשהיא באמת נכנסת בנוחות.</p>`;
     if(p.keep.includes('sofa'))h+=`<div class="row"><label class="f"><span>רוחב הספה שלך (ס״מ)</span><input type="number" id="ksW" inputmode="numeric"></label><label class="f"><span>עומק הספה שלך (ס״מ)</span><input type="number" id="ksD" inputmode="numeric"></label></div>`}
   if(t==='tvwall'){h+=`<label class="f"><span>גודל הטלוויזיה (אינץ׳)</span></label><div class="chips" id="tvInChips"></div><label class="f"><span>איך היא מורכבת</span></label><div class="chips" id="tvMountChips"></div><label class="f"><span>איפה המזנון על הקיר</span></label><div class="chips" id="tvPosChips"></div>`;
     if(p.keep.includes('tvunit'))h+=`<div class="row"><label class="f"><span>רוחב המזנון שלך (ס״מ)</span><input type="number" id="kuW" inputmode="numeric"></label><label class="f"><span>גובה המזנון שלך (ס״מ)</span><input type="number" id="kuH" inputmode="numeric"></label></div>`}
@@ -226,6 +244,8 @@ function renderExtras(){
   if(t==='kids'){chipGroup($('#ageChips'),{toddler:'2–5',school:'6–12'},()=>p.age,false,k=>{p.age=k});chipGroup($('#kidsChips'),{1:'ילד אחד',2:'שניים'},()=>p.kids,false,k=>{p.kids=+k})}
   if(t==='balcony'){chipGroup($('#bUseChips'),{coffee:'קפה ומנוחה',dine:'ארוחות',plants:'צמחים',sun:'שיזוף'},()=>p.bUses,true,k=>{p.bUses=toggleIn(p.bUses,k)});chipGroup($('#bSeatChips'),{2:'2',4:'4'},()=>p.bSeats,false,k=>{p.bSeats=+k});chipGroup($('#floorChips'),{keep:'נשארת כמו שהיא',deck:'דק עץ חדש (בלי כלים)'},()=>p.floor,false,k=>{p.floor=k})}
   if(t==='living'){const tv=$('#tv');tv.value=p.tv;tv.onchange=()=>{p.tv=tv.value;saveForm()};chipGroup($('#useChips'),{tv:'טלוויזיה',host:'אירוח',read:'קריאה',relax:'מנוחה'},()=>p.uses,true,k=>{p.uses=toggleIn(p.uses,k)});
+    const stc=$('#sofaTypeChips');if(stc)chipGroup(stc,{any:'כל סוג',straight:'ישרה',corner:'פינתית'},()=>p.sofaType||'any',false,k=>{const was=p.sofaType;p.sofaType=k;if(was!==k&&(was==='corner'||k==='corner'))setTimeout(renderExtras,0)});
+    const csc=$('#cornerSideChips');if(csc)chipGroup(csc,{auto:'אוטומטי',left:'משמאל',right:'מימין'},()=>p.cornerSide||'auto',false,k=>{p.cornerSide=k});
     for(const id of ['ksW','ksD']){const e=$('#'+id);if(e){e.value=p[id];e.oninput=()=>{p[id]=+e.value||0;saveForm()}}}}
   if(t==='bedroom')chipGroup($('#sleepChips'),{single:'אדם אחד',couple:'זוג'},()=>p.sleepers,false,k=>{p.sleepers=k});
   if(t==='kitchen'||t==='bath'){chipGroup($('#modeChips'),{refresh:'רענון בלי שיפוץ',renovate:'כולל שיפוץ'},()=>p.mode,false,k=>{p.mode=k;modeHint()});modeHint()}
@@ -255,9 +275,10 @@ function roomOf(){
     tv:p.tv||'none',uses:new Set(p.uses||[]),sleepers:p.sleepers||'couple',seats:p.seats||4,mode:p.mode||'refresh',shower:p.shower||'curtain',
     space:p.space||'room',work:p.work||'monitor',age:p.age||'school',kids:+p.kids||1,bUses:new Set(p.bUses||[]),bSeats:+p.bSeats||2,floor:p.floor||'keep'};
   if(t==='balcony')r.winWall='none';
-  r.pal=resolvePal(p);r.opens=p.opens||'';
+  r.pal=resolvePal(p);r.opens=p.opens||'';r.sofaType=['straight','corner'].includes(p.sofaType)?p.sofaType:'any';r.cornerSide=['left','right'].includes(p.cornerSide)?p.cornerSide:'auto';
   if(t==='tvwall'){r.winWall='none';r.door='none';r.tvIn=[43,50,55,65,75,85].includes(+p.tvIn)?+p.tvIn:55;r.tvMount=p.tvMount==='stand'?'stand':'wall';r.tvPos=['left','right'].includes(p.tvPos)?p.tvPos:'center';r.keptUnit={fw:Math.max(60,p.kuW||160),h:Math.max(20,p.kuH||50)}}
   r.tvd=t==='living'?(r.tv==='unit'?40:r.tv==='wall'?8:0):0;
+  if(t==='living'&&r.sofaType==='corner'&&!r.keep.has('sofa')&&!CAT.some(x=>x.slot==='sofa'&&isL(x)&&!lOrient(x,r).fail)){r.sofaType='any';r.sofaFallback=true}
   r.keptSofa=t==='living'&&r.keep.has('sofa')?{fw:Math.max(80,p.ksW||200),fd:Math.max(50,p.ksD||90)}:null;
   return r;
 }
@@ -271,18 +292,20 @@ const artQty=(x,w)=>x.fw<(w||160)*0.33&&x.fw<=61?2:1;
 function fitCheck(x,slot,sel,room){
   const t=room.type;let ok=true,why='',bonus=0;const {W,D}=room;
   if(room.renter&&x.id===71)return{ok:false,why:'דורשת חיבור חשמלאי',bonus:0};
-  if(t==='living'){const tvd=room.tvd;const sofa=itemOf(sel,'sofa',room);const sw=sofa?sofa.fw:0,sd=sofa?sofa.fd:0;
+  if(t==='living'){const tvd=room.tvd;const sofa=itemOf(sel,'sofa',room);const Ls=isL(sofa);const sw=sofa?(Ls?lRef(sofa):sofa.fw):0,sd=sofa?(Ls?sofa.sd:sofa.fd):0,nWd=Ls?sofa.fw-sofa.cw:0;
    switch(slot){
-    case 'sofa':{if(x.fw>W-10){ok=false;why='רחבה מהקיר';break}if(x.fd>D-tvd-SEAT_GAP-MIN_PASS){ok=false;why='עמוקה מדי לחדר';break}const tg=Math.min(Math.max(W*0.72,120),230);bonus-=Math.abs(x.fw-tg)/25;bonus-=Math.max(0,x.fd-0.42*D)/8;if(room.uses.has('host')&&x.fw>=180)bonus+=1.5;if(W-x.fw>=48)bonus+=1;break}
-    case 'coffee':{const av=D-tvd-sd-SEAT_GAP-MIN_PASS;if(x.fd>av){ok=false;why='לא נשאר מעבר של 60 ס״מ';break}const r=sw?x.fw/sw:0.6;if(r>0.8){bonus-=3;why='ארוך יחסית לספה'}else if(r<0.4)bonus-=1.5;if(av-x.fd>=GOOD_PASS-MIN_PASS)bonus+=1;break}
+    case 'sofa':{const xl=isL(x),stp=room.sofaType||'any';if(stp==='straight'&&xl){ok=false;why='ספה פינתית';break}if(stp==='corner'&&!xl){ok=false;why='לא פינתית';break}
+      if(xl){const o=lOrient(x,room);if(o.fail){ok=false;why=o.fail;break}if(stp==='any'&&x.fw-x.cw<90){ok=false;why='אין מקום לשולחן קפה ליד הזרוע';break}if(lGeom(x,room).door){if(stp==='any'){ok=false;why='חוסמת את הדלת';break}bonus-=8}const tg=Math.min(Math.max(W*0.78,220),310);bonus-=Math.abs(o.w-tg)/(stp==='corner'?12:30);bonus-=Math.max(0,o.d-0.55*(D-tvd))/8;if(room.uses.has('host'))bonus+=1.5;if(W>=330&&D-tvd>=300)bonus+=1.5;if(stp==='corner')bonus+=3;if(W-o.w<20)bonus-=0.5;break}
+      if(x.fw>W-10){ok=false;why='רחבה מהקיר';break}if(x.fd>D-tvd-SEAT_GAP-MIN_PASS){ok=false;why='עמוקה מדי לחדר';break}{const dB=doorBox(room);if(dB&&dB.y+dB.h>D-x.fd&&x.fw>(dB.x<W/2?W-dB.x-dB.w-6:dB.x-6)){bonus-=8;why='חוסמת את הדלת'}}const tg=Math.min(Math.max(W*0.72,120),230);bonus-=Math.abs(x.fw-tg)/25;bonus-=Math.max(0,x.fd-0.42*D)/8;if(room.uses.has('host')&&x.fw>=180)bonus+=1.5;if(W-x.fw>=48)bonus+=1;break}
+    case 'coffee':{const av=D-tvd-sd-SEAT_GAP-MIN_PASS;if(x.fd>av){ok=false;why='לא נשאר מעבר של 60 ס״מ';break}if(Ls&&x.fw>nWd-40){ok=false;why='לא נכנס בפינת הישיבה';break}const r=Ls?x.fw/nWd:sw?x.fw/sw:0.6;if(r>0.8){bonus-=3;why='ארוך יחסית לספה'}else if(r<0.4)bonus-=1.5;if(av-x.fd>=GOOD_PASS-MIN_PASS)bonus+=1;break}
     case 'rug':{if(x.fw>W-20||x.fd>D-tvd-20){ok=false;why='גדול מהחדר';break}if(sw&&x.fw<sw*0.6){bonus-=3;why='קטן ביחס לספה'}else if(sw&&x.fw>=sw*0.85)bonus+=2;bonus-=Math.max(0,Math.min(W-40,sw+40)-x.fw)/30;break}
     case 'arm':{if(!layout(room,Object.assign({},sel,{arm:{id:x.id}})).pos.arm){ok=false;why='אין מקום בלי לחסום מעבר'}else if(room.uses.has('read'))bonus+=0.5;break}
-    case 'side':{if(!layout(room,Object.assign({},sel,{side:{id:x.id}})).pos.side){ok=false;why='אין מקום ליד הספה'}else if(sd&&x.fd>sd+5)bonus-=1;break}
+    case 'side':{const Lx=layout(room,Object.assign({},sel,{side:{id:x.id}}));if(!Lx.pos.side||(sel.arm&&!sel.arm.keep&&!Lx.pos.arm)){ok=false;why='אין מקום ליד הספה'}else if(sd&&x.fd>sd+5)bonus-=1;break}
     case 'floor':{if(room.uses.has('read')&&[69,76,70].includes(x.id))bonus+=1;break}
     case 'pouf':{const hc=!!itemOf(sel,'coffee',room);if(!hc){const av=D-tvd-sd-SEAT_GAP-MIN_PASS;if(x.fd>av){ok=false;why='לא נשאר מעבר';break}bonus+=x.fw>=50?1.5:0}else bonus-=x.fw>60?1:0;if(room.uses.has('host'))bonus+=0.5;break}
     case 'pendant':{bonus-=Math.abs(x.fw-(W+D)/12)/7;break}
     case 'blind':{if(room.winWall==='none'){ok=false;why='אין חלון';break}const n=Math.ceil(room.winW/140),need=room.winW/n;if(x.fw<need-2){ok=false;why='צר מהחלון';break}bonus-=(x.fw-need)/10;break}
-    case 'art':{const q=artQty(x,sw);const w=x.fw*q+(q-1)*8;if(w>(sw||W)*1.05){bonus-=4;why='רחבה מהספה'}bonus-=Math.abs(w-(sw||160)*0.62)/40;break}
+    case 'art':{const swA=sofa?sofa.fw:0;const q=artQty(x,swA);const w=x.fw*q+(q-1)*8;if(w>(swA||W)*1.05){bonus-=4;why='רחבה מהספה'}bonus-=Math.abs(w-(swA||160)*0.62)/40;break}
     case 'shelf':{if(x.fw>W-40){ok=false;why='ארוך מהקיר'}break}
     case 'mirror':{if(x.id===167&&room.renter)bonus+=1;break}
    }}
@@ -327,7 +350,7 @@ function fitCheck(x,slot,sel,room){
 function tableSeats(x){if(!x)return 0;const round=x.fw===x.fd;if(round)return x.fw>=100?4:2;if(x.fw>=175)return 6;if(x.fw>=110)return 4;return 2}
 function qtyFor(slot,x,sel,room){
   const t=room.type;
-  if(t==='living'){if(slot==='art')return artQty(x,(itemOf(sel,'sofa',room)||{}).fw);if(slot==='cushion'){const s=itemOf(sel,'sofa',room);return s&&s.fw>=180?2:1}if(slot==='blind')return Math.ceil(room.winW/140);return 1}
+  if(t==='living'){if(slot==='art')return artQty(x,(itemOf(sel,'sofa',room)||{}).fw);if(slot==='cushion'){const s=itemOf(sel,'sofa',room);return s&&s.fw>=180?(isL(s)&&s.fw>=250?3:2):1}if(slot==='blind')return Math.ceil(room.winW/140);return 1}
   if(t==='bedroom'){const bed=itemOf(sel,'bed',room);const dbl=bed?(bed.keep?room.sleepers==='couple':nomW(bed)>=140):room.sleepers==='couple';
     if(slot==='bedside'||slot==='table')return dbl?2:1;if(slot==='cushion')return 2;if(slot==='underbed')return 2;if(slot==='art')return artQty(x,bed?bed.fw:140);
     if(slot==='curtain'){const fab=/זוג/.test(x.v)?x.fw*2:x.fw;return Math.max(1,Math.ceil(room.winW*1.8/fab))}return 1}
@@ -382,7 +405,10 @@ function scoreItem(x,slot,style,room,sel){
   const heavy=['sofa','bed','wardrobe','vanity','kunit','mattress','dtable','desk','kbed','osofa'].includes(slot)?1000:['arm','coffee','dresser','cart','mcab','tallcab','ksink','ktap','chair','ochair','bookcase','kmattress','otable','bchair','lounger','kstorage','deck'].includes(slot)?500:250;
   s-=x.p*qtyFor(slot,x,sel,room)/heavy;
   if(room.pal&&PAL_ROLE[slot]!==undefined){const pf=palFor(style,room);s-=Math.min(PAL_CAP,dE(x.hex,pf.c[PAL_ROLE[slot]])/PAL_DIV)}
-  const f=fitCheck(x,slot,sel,room);return{s:s+f.bonus,ok:f.ok,why:f.why};
+  const f=fitCheck(x,slot,sel,room);
+  // big rooms: the relaxed styles (Studio McGee, Vervoordt) get an L-shaped sofa so the three concepts are not all alike
+  if(slot==='sofa'&&room.type==='living'&&isL(x)&&room.sofaType==='any'&&'WM'.includes(style)&&room.W>=300&&room.D-room.tvd>=270)s+=5;
+  return{s:s+f.bonus,ok:f.ok,why:f.why};
 }
 function candidates(slot,style,room,sel){const d=SLOTDEF(room.type)[slot];return CAT.filter(x=>catHas(d,x)).map(x=>Object.assign({x},scoreItem(x,slot,style,room,sel))).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s))}
 function chooseStyles(room){const sc={};for(const k in STYLES)sc[k]=STYLE_BASE[k];for(const l of room.likes)for(const [k,v] of Object.entries((LIKES[l]||{}).st||{}))sc[k]+=v;for(const d of room.dis)for(const [k,v] of Object.entries((DISLIKES[d]||{}).st||{}))sc[k]+=v;return Object.keys(sc).sort((a,b)=>sc[b]-sc[a]).slice(0,3)}
@@ -419,29 +445,39 @@ function layoutLiving(room,sel){
   const sofa=it('sofa'),coffee=it('coffee'),arm=it('arm'),side=it('side'),lamp=it('floor'),pouf=it('pouf'),rug=it('rug'),plant=it('plant'),mirror=it('mirror');
   if(room.tv==='unit')fixed.push({x:W/2-80,y:0,w:160,h:40,label:'טלוויזיה',dark:1});else if(room.tv==='wall')fixed.push({x:W/2-62,y:0,w:124,h:6,label:'טלוויזיה',dark:1});
   if(!sofa)return{pos:P,notes,fixed};
-  const sw=sofa.fw,sd=sofa.fd;let sx=(W-sw)/2;const sy=D-sd;let gapL=sx,gapR=W-sx-sw;
-  if(side){const need=side.fw+4;if(gapL>=need)P.side={x:sx-side.fw-2,y:D-side.fd-2,w:side.fw,h:side.fd};else if(gapL+gapR>=need){sx=need;gapL=sx;gapR=W-sx-sw;P.side={x:2,y:D-side.fd-2,w:side.fw,h:side.fd}}}
-  P.sofa={x:sx,y:sy,w:sw,h:sd};const frontY=sy-SEAT_GAP;
-  if(coffee)P.coffee={x:sx+sw/2-coffee.fw/2,y:frontY-coffee.fd,w:coffee.fw,h:coffee.fd,round:coffee.fw===coffee.fd&&[30,36].includes(coffee.id)};
-  if(arm){const cy=P.coffee?P.coffee.y+P.coffee.h/2:frontY-30;const ah=arm.fw,aw=arm.fd;let ay=Math.max(Math.min(cy-ah/2,sy-6-ah),tvd+4);
-    const cR=P.coffee?P.coffee.x+P.coffee.w:sx+sw*0.7,cL=P.coffee?P.coffee.x:sx+sw*0.3;const pOK=y=>y>=tvd+4&&y+ah<=sy-4;
-    if(W-(cR+38)>=aw+4&&pOK(ay)&&!(P.side&&P.side.x>sx))P.arm={x:W-aw-4,y:ay,w:aw,h:ah,face:'l'};
-    else if(cL-38>=aw+4&&pOK(ay)&&!(P.side&&P.side.x<sx&&P.side.y<ay+ah))P.arm={x:4,y:ay,w:aw,h:ah,face:'r'};
-    else if(gapR>=arm.fw+4)P.arm={x:sx+sw+2,y:D-arm.fd-2,w:arm.fw,h:arm.fd,face:'u'};
-    else if(gapL>=arm.fw+4&&!P.side)P.arm={x:sx-arm.fw-2,y:D-arm.fd-2,w:arm.fw,h:arm.fd,face:'u'}}
+  const G=isL(sofa)?lGeom(sofa,room):null;if(isL(sofa)&&!G){notes.push('הספה הפינתית לא נכנסת לחדר.');return{pos:P,notes,fixed}}
+  const sw=G?G.sw:sofa.fw,sd=G?G.sd:sofa.fd;let sx=G?G.sx:(W-sw)/2;const sy=D-sd;const dB=doorBox(room),hitD=b=>!!(dB&&b&&overlap(b,dB));
+  if(!G&&dB&&dB.y+dB.h>sy){if(dB.x<W/2){const mn=dB.x+dB.w+4;if(sx<mn&&mn+sw<=W-2)sx=mn}else{const mx=dB.x-4-sw;if(sx>mx&&mx>=2)sx=mx}}let gapL=sx,gapR=W-sx-sw;const legR=G?G.leg:null,cxs=G?G.cx:sx+sw/2;
+  if(side){const need=side.fw+4;if(G){const fr=G.side==='l'?W-(sx+sw):sx;if(fr>=need)P.side={x:G.side==='l'?sx+sw+2:sx-side.fw-2,y:D-side.fd-2,w:side.fw,h:side.fd}}
+    else if(gapL>=need)P.side={x:sx-side.fw-2,y:D-side.fd-2,w:side.fw,h:side.fd};else if(dB&&gapR>=need&&!hitD({x:sx+sw+2,y:D-side.fd-2,w:side.fw,h:side.fd}))P.side={x:sx+sw+2,y:D-side.fd-2,w:side.fw,h:side.fd};
+    else if(gapL+gapR>=need&&!hitD({x:need,y:sy,w:sw,h:sd})){sx=need;gapL=sx;gapR=W-sx-sw;P.side={x:2,y:D-side.fd-2,w:side.fw,h:side.fd}}}
+  P.sofa={x:sx,y:sy,w:sw,h:sd};if(legR)P.sofa_2=Object.assign({},legR);const frontY=sy-SEAT_GAP;
+  if(coffee)P.coffee={x:cxs-coffee.fw/2,y:frontY-coffee.fd,w:coffee.fw,h:coffee.fd,round:coffee.fw===coffee.fd&&[30,36].includes(coffee.id)};
+  if(arm){const cy=P.coffee?P.coffee.y+P.coffee.h/2:frontY-30;const ah=arm.fw,aw=arm.fd;const ay0=Math.max(Math.min(cy-ah/2,sy-6-ah),tvd+4);
+    const cR=P.coffee?P.coffee.x+P.coffee.w:sx+sw*0.7,cL=P.coffee?P.coffee.x:sx+sw*0.3;const pOK=y=>y>=tvd+4&&y+ah<=sy-4;const clr=b=>!(legR&&overlap(b,legR))&&!hitD(b);
+    for(const ay of legR?[ay0,legR.y-ah-8]:[ay0]){if(P.arm)break;
+      if(W-(cR+38)>=aw+4&&pOK(ay)&&!(P.side&&P.side.x>sx)&&clr({x:W-aw-4,y:ay,w:aw,h:ah}))P.arm={x:W-aw-4,y:ay,w:aw,h:ah,face:'l'};
+      else if(cL-38>=aw+4&&pOK(ay)&&!(P.side&&P.side.x<sx&&P.side.y<ay+ah)&&clr({x:4,y:ay,w:aw,h:ah}))P.arm={x:4,y:ay,w:aw,h:ah,face:'r'}}
+    if(!P.arm){const sR=P.side&&P.side.x>sx?P.side.w+2:0,sL=P.side&&P.side.x<sx?P.side.w+2:0;
+      {const ba={x:sx+sw+2+sR,y:D-arm.fd-2,w:arm.fw,h:arm.fd,face:'u'},bb={x:sx-sL-arm.fw-2,y:D-arm.fd-2,w:arm.fw,h:arm.fd,face:'u'};
+      if(gapR-sR>=arm.fw+4&&!hitD(ba))P.arm=ba;else if(gapL-sL>=arm.fw+4&&!hitD(bb))P.arm=bb}}}
+  for(const k of ['side','arm']){const o=P[k],q=k==='side'?side:arm;if(!o||!hitD(o))continue;
+    const alt=[{x:sx+sw+2,y:D-q.fd-2,w:q.fw,h:q.fd},{x:sx-q.fw-2,y:D-q.fd-2,w:q.fw,h:q.fd}].map(b=>Object.assign({},b,k==='arm'?{face:'u'}:{}));
+    const ok=alt.find(b=>b.x>=2&&b.x+b.w<=W-2&&!hitD(b)&&!overlap(b,P.sofa||{x:sx,y:sy,w:sw,h:sd})&&!(legR&&overlap(b,legR))&&!(k==='arm'&&P.side&&overlap(b,P.side))&&!(k==='side'&&P.arm&&overlap(b,P.arm)));
+    if(ok)P[k]=ok;else{delete P[k];notes.push((k==='side'?'שולחן הצד':'הכורסה')+' הוסר מהתוכנית — היה חוסם את הדלת.')}}
   if(lamp){const lw=lamp.fw;const fR=W-(sx+sw)-(P.arm&&P.arm.face==='u'&&P.arm.x>sx?P.arm.w+2:0);const fL=sx-(P.side?P.side.w+2:0)-(P.arm&&P.arm.face==='u'&&P.arm.x<sx?P.arm.w+2:0);
     if(fR>=lw+2)P.floor={x:W-lw-2,y:D-lw-2,w:lw,h:lw,round:1};else if(fL>=lw+2)P.floor={x:2,y:D-lw-2,w:lw,h:lw,round:1};
     else if(P.arm&&P.arm.face!=='u'){const r=P.arm.face==='l';P.floor={x:r?W-lw-2:2,y:Math.max(tvd+2,P.arm.y-lw-2),w:lw,h:lw,round:1}}
     else{P.floor={x:W-lw-2,y:tvd+2,w:lw,h:lw,round:1};notes.push('המנורה העומדת עוברת לפינה ליד הקיר ממול — אין מקום ליד הספה.')}
-    const blockers=['sofa','side','arm','coffee'].map(k=>P[k]).filter(Boolean);
+    const blockers=['sofa','sofa_2','side','arm','coffee'].map(k=>P[k]).filter(Boolean).concat(dB?[dB]:[]);
     if(P.floor&&blockers.some(b=>overlap(P.floor,b))){const cs=[{x:W-lw-2,y:tvd+2},{x:2,y:tvd+2},{x:W-lw-2,y:D-lw-2},{x:2,y:D-lw-2}].map(o=>({x:o.x,y:o.y,w:lw,h:lw,round:1}));
       const o=freeSpot(room,cs,blockers);if(o){P.floor=o;if(!notes.some(n=>/המנורה העומדת/.test(n)))notes.push('המנורה העומדת עוברת לפינה פנויה — אין מקום ליד הספה והכורסה.')}
       else{delete P.floor;notes.push('אין מקום פנוי למנורה העומדת — מנורת שולחן או מנורת קיר יתאימו יותר.')}}}
-  if(pouf){const pw=pouf.fw,ph=pouf.fd;if(!P.coffee)P.pouf={x:sx+sw/2-pw/2,y:frontY-ph,w:pw,h:ph,round:pw===ph};
+  if(pouf){const pw=pouf.fw,ph=pouf.fd;if(!P.coffee)P.pouf={x:cxs-pw/2,y:frontY-ph,w:pw,h:ph,round:pw===ph};
     else{const aR=P.arm&&P.arm.x>W/2;const x=aR?P.coffee.x-pw-14:P.coffee.x+P.coffee.w+14;const y=P.coffee.y+P.coffee.h/2-ph/2;
-      if(x>=4&&x+pw<=W-4&&!(P.arm&&overlap({x,y,w:pw,h:ph},P.arm)))P.pouf={x,y,w:pw,h:ph,round:pw===ph};else{P.pouf={x:P.coffee.x+P.coffee.w-pw*0.7,y:P.coffee.y+P.coffee.h-ph*0.35,w:pw,h:ph,round:pw===ph,under:1};notes.push('ההדום נכנס חלקית מתחת לשולחן כשלא בשימוש.')}}}
-  if(rug){const rw=rug.fw,rh=rug.fd;let ry=sy+20-rh;if(ry<tvd+10)ry=tvd+10;let rx=Math.min(Math.max(10,sx+sw/2-rw/2),W-10-rw);P.rug={x:rx,y:ry,w:rw,h:rh,under:2}}
-  const taken=()=>['sofa','side','arm','floor','pouf','coffee'].map(k=>P[k]).filter(Boolean);
+      if(x>=4&&x+pw<=W-4&&!(P.arm&&overlap({x,y,w:pw,h:ph},P.arm))&&!(legR&&overlap({x,y,w:pw,h:ph},legR))&&!hitD({x,y,w:pw,h:ph}))P.pouf={x,y,w:pw,h:ph,round:pw===ph};else{P.pouf={x:P.coffee.x+P.coffee.w-pw*0.7,y:P.coffee.y+P.coffee.h-ph*0.35,w:pw,h:ph,round:pw===ph,under:1};notes.push('ההדום נכנס חלקית מתחת לשולחן כשלא בשימוש.')}}}
+  if(rug){const rw=rug.fw,rh=rug.fd;let ry=sy+20-rh;if(ry<tvd+10)ry=tvd+10;const rcx=G?G.cx+(G.side==='l'?-1:1)*G.leg.w*0.35:sx+sw/2;let rx=Math.min(Math.max(10,rcx-rw/2),W-10-rw);P.rug={x:rx,y:ry,w:rw,h:rh,under:2}}
+  const taken=()=>['sofa','sofa_2','side','arm','floor','pouf','coffee'].map(k=>P[k]).filter(Boolean);
   if(plant){const s=plant.fw;const o=freeSpot(room,[{x:2,y:tvd+2},{x:W-s-2,y:tvd+2},{x:2,y:D-s-2},{x:W-s-2,y:D-s-2}].map(o=>({x:o.x,y:o.y,w:s,h:s,round:1})),taken());if(o)P.plant=o;else notes.push('אין פינה פנויה לצמח על הרצפה — אפשר צמח קטן על מדף.')}
   if(mirror&&mirror.id===167){const o=freeSpot(room,[{x:2,y:tvd+2,w:52,h:12},{x:W-54,y:tvd+2,w:52,h:12}],taken().concat(P.plant?[P.plant]:[]));if(o)P.mirror=o}
   return{pos:P,notes,fixed};
@@ -771,17 +807,22 @@ function checks(c,room){const L=layout(room,c.sel);const out=({living:checksLivi
   for(const n of L.notes)out.push(['warn',n]);paletteFitCheck(c,room,out);harmonyChecks(room,out);return{L,out}}
 function checksLiving(c,room,L){const P=L.pos,out=[];const {W,D,tvd}=room;const it=k=>itemOf(c.sel,k,room);const sofa=it('sofa');
   if(!sofa){out.push(['bad','אין ספה בעיצוב.']);return out}
-  out.push(sofa.fw<=W-10?['ok','הספה ('+sofa.fw+' ס״מ) נכנסת לקיר של '+W+' ס״מ ומשאירה '+Math.round(W-sofa.fw)+' ס״מ בצדדים.']:['bad','הספה רחבה מהקיר.']);
+  const Ls=isL(sofa),G=Ls?lGeom(sofa,room):null;
+  if(room.sofaFallback)out.push(['warn','ביקשתם ספה פינתית, אבל אין כזו שנכנסת בחדר הזה בנוחות — הצענו ספה ישרה.']);
+  if(Ls){if(!G)out.push(['bad','הספה '+(isCorner(sofa)?'הפינתית':'עם השזלונג')+' לא נכנסת לחדר.']);
+    else{out.push(['ok','הספה '+(isCorner(sofa)?'הפינתית':'עם השזלונג')+' ('+Math.round(G.sw)+'×'+Math.round(G.ld)+' ס״מ) נכנסת לקיר של '+W+' ס״מ — '+(isCorner(sofa)?'הזרוע השנייה':'השזלונג')+' ל'+(G.side==='l'?'שמאל':'ימין')+', ונשארים '+Math.round(W-G.sw-2)+' ס״מ בצד השני.']);
+      const lc=Math.round(D-G.ld-tvd);out.push(lc>=GOOD_PASS?['ok',(isCorner(sofa)?'קצה הזרוע':'קצה השזלונג')+' נעצר '+lc+' ס״מ מהטלוויזיה — נוח לעבור.']:lc>=MIN_PASS?['warn',(isCorner(sofa)?'קצה הזרוע':'קצה השזלונג')+' נעצר '+lc+' ס״מ מהטלוויזיה — עובר, אבל צר.']:['bad',(isCorner(sofa)?'קצה הזרוע':'קצה השזלונג')+' קרוב מדי לטלוויזיה ('+lc+' ס״מ).'])}}
+  else out.push(sofa.fw<=W-10?['ok','הספה ('+sofa.fw+' ס״מ) נכנסת לקיר של '+W+' ס״מ ומשאירה '+Math.round(W-sofa.fw)+' ס״מ בצדדים.']:['bad','הספה רחבה מהקיר.']);
   const front=P.coffee||(P.pouf&&!it('coffee')&&P.pouf);const pass=Math.round((front?front.y:P.sofa.y-SEAT_GAP)-tvd);
   out.push(pass>=GOOD_PASS?['ok','מעבר של '+pass+' ס״מ מול הספה — נוח.']:pass>=MIN_PASS?['warn','מעבר של '+pass+' ס״מ מול הספה — עובר, אבל צר (מומלץ 90).']:['bad','נשארים רק '+pass+' ס״מ מעבר — צפוף מדי.']);
-  if(!it('coffee'))out.push(['warn','בעומק '+D+' ס״מ אין מקום לשולחן קפה עם מעבר — '+(P.pouf?'ההדום משמש כשולחן (עם מגש).':'כדאי שולחן צד ליד הספה.')]);
-  else{const r=it('coffee').fw/sofa.fw;out.push(r>=0.5&&r<=0.75?['ok','שולחן הקפה ביחס '+Math.round(r*100)+'% לספה — הפרופורציה הקלאסית.']:['warn','שולחן הקפה ביחס '+Math.round(r*100)+'% לספה (מומלץ 50–75%).'])}
-  if(room.tv!=='none'){const dist=Math.round(P.sofa.y+sofa.fd*0.45-tvd);out.push(['ok','מרחק צפייה כ-'+dist+' ס״מ — מתאים למסך עד '+Math.round(dist/1.2/2.54/5)*5+' אינץ׳.'])}
+  if(!it('coffee'))out.push(['warn',(Ls?'לפינת הישיבה ('+(G?Math.round(G.nw):'-')+' ס״מ ליד '+(isCorner(sofa)?'הזרוע':'השזלונג')+') לא נכנס שולחן קפה עם מעבר — ':'בעומק '+D+' ס״מ אין מקום לשולחן קפה עם מעבר — ')+(P.pouf?'ההדום משמש כשולחן (עם מגש).':'כדאי שולחן צד ליד הספה.')]);
+  else{const r=it('coffee').fw/(Ls&&G?G.nw:sofa.fw);const wh=Ls?'לפינת הישיבה':'לספה';out.push(r>=0.5&&r<=0.75?['ok','שולחן הקפה ביחס '+Math.round(r*100)+'% '+wh+' — הפרופורציה הקלאסית.']:['warn','שולחן הקפה ביחס '+Math.round(r*100)+'% '+wh+' (מומלץ 50–75%).'])}
+  if(room.tv!=='none'){const dist=Math.round(P.sofa.y+(Ls?sofa.sd:sofa.fd)*0.45-tvd);out.push(['ok','מרחק צפייה כ-'+dist+' ס״מ — מתאים למסך עד '+Math.round(dist/1.2/2.54/5)*5+' אינץ׳.'])}
   if(c.sel.arm&&!c.sel.arm.keep)out.push(P.arm?['ok','הכורסה ממוקמת '+(P.arm.face==='u'?'ליד הספה':'בצד, פונה לשולחן')+' בלי לחסום מעבר.']:['bad','אין מקום לכורסה בלי לחסום מעבר.']);
-  const rug=it('rug');if(rug&&P.rug){const mb=Math.round(Math.min(P.rug.x,W-P.rug.x-P.rug.w,P.rug.y-tvd));const cov=rug.fw>=sofa.fw*0.85;out.push(cov&&mb>=15?['ok','השטיח רחב כמו הספה ונכנס מתחת לרגליים הקדמיות, עם '+mb+' ס״מ רצפה בשוליים.']:!cov?['warn','השטיח צר מהספה — מומלץ לפחות ברוחבה.']:['warn','השטיח קרוב לקירות ('+mb+' ס״מ) — מומלץ 20.'])}
+  const rug=it('rug');if(rug&&P.rug){const mb=Math.round(Math.min(P.rug.x,W-P.rug.x-P.rug.w,P.rug.y-tvd));const cov=rug.fw>=(Ls?lRef(sofa):sofa.fw)*0.85;out.push(cov&&mb>=15?['ok',(Ls?'השטיח מכסה את אזור הישיבה ונכנס':'השטיח רחב כמו הספה ונכנס')+' מתחת לרגליים הקדמיות, עם '+mb+' ס״מ רצפה בשוליים.']:!cov?['warn',Ls?'השטיח קטן לאזור הישיבה — מומלץ שיכסה את הפינה ואת שולחן הקפה.':'השטיח צר מהספה — מומלץ לפחות ברוחבה.']:['warn','השטיח קרוב לקירות ('+mb+' ס״מ) — מומלץ 20.'])}
   lightCheck(c,out,['pendant','floor','table','candle']);
   const pd=it('pendant');if(pd&&!pd.keep){const tg=Math.round((W+D)/12);out.push(Math.abs(pd.fw-tg)<=tg*0.35?['ok','גוף התאורה בקוטר '+pd.fw+' ס״מ — מתאים לחדר.']:['warn','גוף התאורה בקוטר '+pd.fw+' ס״מ — לחדר הזה מתאים סביב '+tg+'.'])}
-  artCheck(c,out,sofa.fw,'מהספה');
+  artCheck(c,out,P.sofa.w,'מהספה');
   if(room.renter&&c.sel.pendant&&!c.sel.pendant.keep)out.push(['ok','מנורת התקרה מתחברת לנקודה הקיימת. לשמור את האהיל הישן לסוף השכירות.']);
   return out}
 function lightCheck(c,out,keys,min=3){const n=keys.filter(k=>c.sel[k]).length;out.push(n>=min?['ok','תאורה בשכבות ('+n+' מקורות). כל הנורות 2700K.']:['warn','רק '+n+' מקורות אור — מומלץ 3 שכבות.'])}
@@ -832,6 +873,10 @@ function planSVG(c,room){
   for(const m of L.marks||[])s+=`<line x1="0" y1="${m.y}" x2="${W}" y2="${m.y}" stroke="var(--ink)" stroke-opacity=".22" stroke-dasharray="4 4"/>`;
   const order=Object.keys(P).sort((a,b)=>(P[b].under||0)-(P[a].under||0));
   for(const k of order){const b=P[k];const x=itemFor(k);if(!b||!x||typeof b!=='object'||b.x===undefined)continue;const f=x.hex,tc=textOn(f);const isRug=/rug$/.test(k);
+    if(k==='sofa_2')continue;
+    if(k==='sofa'&&P.sofa_2){const g=P.sofa_2,lf=g.x<=b.x+1;const pts=lf?[[g.x,g.y],[g.x+g.w,g.y],[g.x+g.w,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]:[[g.x,g.y],[g.x+g.w,g.y],[g.x+g.w,b.y+b.h],[b.x,b.y+b.h],[b.x,b.y],[g.x,b.y]];
+      s+=`<path d="M${pts.map(p=>p.join(' ')).join(' L')} Z" fill="${f}" stroke="${wall}" stroke-opacity=".55" stroke-linejoin="round"/>`;
+      const lb2='ספה '+Math.round(b.w);const fs2=Math.max(7,Math.min(11,b.w/7));s+=`<text x="${b.x+b.w/2+(lf?g.w/2:-g.w/2)}" y="${b.y+b.h/2+fs2/3}" font-size="${fs2}" text-anchor="middle" fill="${tc}" ${fnt}>${esc(lb2)}</text>`;continue}
     s+=b.round?`<ellipse cx="${b.x+b.w/2}" cy="${b.y+b.h/2}" rx="${b.w/2}" ry="${b.h/2}" fill="${f}" stroke="${wall}" stroke-opacity=".55"/>`:`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${isRug?2:5}" fill="${f}" ${isRug?'fill-opacity=".5"':''} stroke="${wall}" stroke-opacity="${isRug?.25:.55}" ${b.under===1?'stroke-dasharray="3 3" fill-opacity=".6"':''}/>`;
     if(b.cl)s+=`<rect x="${b.cl.x}" y="${b.cl.y}" width="${b.cl.w}" height="${b.cl.h}" fill="none" stroke="${wall}" stroke-opacity=".25" stroke-dasharray="2 3"/>`;
     const lb=(room.type==='tvwall'&&LBL_TV[baseKey(k)])||LBL[baseKey(k)];const fs=Math.max(7,Math.min(11,b.w/7));
@@ -913,7 +958,7 @@ function closeSheet(){$('#sheet').classList.remove('on');$('#scrim').classList.r
 function listText(c){const st=STYLES[c.style];let t=`${ROOMS[ROOM.type].he} · ${c.title||st.name} — בהשראת ${st.designer}\n`;for(const s of activeSlots(ROOM,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;const x=BY[e.id];t+=`• ${s.he}: ${x.n} — ${x.v}${(e.qty||1)>1?' ×'+e.qty:''} — ${ils(x.p*(e.qty||1))}\n  ${ikeaUrl(x)}\n`}return t+`סה״כ: ${ils(totalOf(c.sel))}`}
 function geminiPrompt(c){const st=STYLES[c.style],room=ROOM,R=ROOMS[room.type];const keep=[...room.keep];const lines=[];let i=1;
   for(const s of activeSlots(room,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;lines.push(`${i++}. ${BY[e.id].n} (${catName(s)}${(e.qty||1)>1?' x'+e.qty:''})`)}
-  const place={living:`Place the sofa against the ${room.W} cm wall; keep a clear 60–90 cm walkway in front of it; rug under the sofa's front legs.`,bedroom:`Bed headboard centred on the ${room.W} cm wall, bedside tables on both sides, at least 60 cm to walk around the bed.`,kitchen:`Keep the existing kitchen cabinets${room.mode==='renovate'?' but replace the sink and tap with the ones listed':''}; place the dining table with at least 90 cm from the counter.`,bath:`Keep the existing toilet, shower/bath and tiles${room.mode==='renovate'?'; replace the vanity and mirror with the ones listed':''}.`,office:`Desk against the ${room.W} cm wall with the chair in front of it, about 90 cm free behind the chair; task lamp on the desk.`,kids:`A child's room: bed along a wall, a clear play area in the middle of the floor, storage low and reachable.`,balcony:`This is an outdoor balcony: house wall with the door at the bottom, railing opposite. Keep a clear 70 cm path from the door. Outdoor furniture only.`,tvwall:`This is ONE feature wall seen straight on: the TV unit centred under the ${room.tvIn}-inch TV (${room.tvMount==='wall'?'wall-mounted':'standing on the unit'}), shelves and wall lights beside or above the TV, a picture and a plant beside the unit, cables hidden. Keep the existing TV; do not move the walls, windows or sockets.`}[room.type];
+  const place={living:(()=>{const e=c.sel&&c.sel.sofa,x=e&&!e.keep&&BY[e.id],g=x&&isL(x)?lGeom(x,room):null;return g?`The sofa is L-shaped (${isCorner(x)?'corner sofa':'sofa with a chaise longue'}): put it in the ${g.side==='l'?'left':'right'} corner of the room with its ${g.o.w} cm back along the wall and its ${x.cw} cm wide ${isCorner(x)?'return leg':'chaise'} reaching ${g.ld} cm into the room; put the coffee table and rug in the open space beside the leg; keep a clear 60–90 cm walkway.`:`Place the sofa against the ${room.W} cm wall; keep a clear 60–90 cm walkway in front of it; rug under the sofa's front legs.`})(),bedroom:`Bed headboard centred on the ${room.W} cm wall, bedside tables on both sides, at least 60 cm to walk around the bed.`,kitchen:`Keep the existing kitchen cabinets${room.mode==='renovate'?' but replace the sink and tap with the ones listed':''}; place the dining table with at least 90 cm from the counter.`,bath:`Keep the existing toilet, shower/bath and tiles${room.mode==='renovate'?'; replace the vanity and mirror with the ones listed':''}.`,office:`Desk against the ${room.W} cm wall with the chair in front of it, about 90 cm free behind the chair; task lamp on the desk.`,kids:`A child's room: bed along a wall, a clear play area in the middle of the floor, storage low and reachable.`,balcony:`This is an outdoor balcony: house wall with the door at the bottom, railing opposite. Keep a clear 70 cm path from the door. Outdoor furniture only.`,tvwall:`This is ONE feature wall seen straight on: the TV unit centred under the ${room.tvIn}-inch TV (${room.tvMount==='wall'?'wall-mounted':'standing on the unit'}), shelves and wall lights beside or above the TV, a picture and a plant beside the unit, cables hidden. Keep the existing TV; do not move the walls, windows or sockets.`}[room.type];
   return `Edit the attached ${R.en} photo. Keep the exact camera angle, perspective, walls, window, floor, ceiling and daylight. ${keep.length?'Keep the existing '+keep.join(', ')+'.':'Remove the existing loose furniture and decor.'}
 Furnish it in a ${st.en} style (in the spirit of ${st.designer}) using ONLY the IKEA products in the second image (numbered product sheet). Match each product's exact shape, colour and material — do not invent other furniture.
 ${room.type==='tvwall'?`Wall: ${room.W} cm wide x ${room.D} cm ceiling height.`:`Room: ${room.W} x ${room.D} cm.`} ${place}
@@ -960,7 +1005,7 @@ let aiCtl=null,aiState={busy:false,msg:''};
 function refreshAi(){const box=$('#aiBox');if(!box)return;if(!sample){box.classList.add('hidden');return}box.classList.remove('hidden');const wp=photoFile&&sampleImages;
   box.innerHTML=`<h3>עיצוב אישי עם Claude</h3><p class="small muted" style="margin-top:4px">Claude יבחר 3 סגנונות ומוצרים במיוחד לחדר שלכם${wp?' — כולל קריאה של התמונה (אור, רצפה, קירות)':''}. לוקח כחצי דקה עד שתיים, ומשתמש במכסת ה-Claude שלכם.</p><div class="row" style="margin-top:10px"><button class="btn sm" id="aiGo" ${aiState.busy?'disabled':''}>✨ עצב לי עם Claude</button>${aiState.busy?'<button class="btn sm ghost" id="aiStop">עצירה</button>':''}</div><div class="st" id="aiSt">${esc(aiState.msg)}</div>`;
   $('#aiGo').onclick=runAi;const sb=$('#aiStop');if(sb)sb.onclick=()=>aiCtl&&aiCtl.abort()}
-const RULES={living:'Sofa depth + 42 + coffee-table depth + 60 must fit the room depth minus the TV; if no coffee table fits use null and a pouf. Rug at least ~85% of sofa width. Leave out an armchair that would block the walkway.',
+const RULES={living:'Sofa depth + 42 + coffee-table depth + 60 must fit the room depth minus the TV; if no coffee table fits use null and a pouf. Rug at least ~85% of sofa width. Leave out an armchair that would block the walkway. Products marked L-SHAPED (corner sofas and sofas with a chaise) occupy their full overall footprint in a room corner; the coffee table and rug then go in the open space beside the leg, and the leg must stay at least 90 cm from the TV wall - choose one only if the room clearly fits it and the user wants that type.',
  bedroom:'Bed must leave 60 cm on each side for a couple (45 min) and 70 cm at the foot. Mattress width must equal the bed nominal width (e.g. 160x200 bed → 160 mattress). Duvet/bedspread size must match single vs double. Wardrobe needs a free wall plus door-opening space.',
  kitchen:'Keep 100 cm between the kitchen counter and the dining table, 75 cm behind chairs. Chairs count = seats wanted. Pendant 45–60% of table width.',
  bath:'Keep 70 cm clear in front of the sink. Mirror or mirror cabinet not wider than the vanity. Prefer no-drill items for renters.',
@@ -969,9 +1014,9 @@ const RULES={living:'Sofa depth + 42 + coffee-table depth + 60 must fit the room
  balcony:'Outdoor products only. Keep a 70 cm path from the door. Seats = sofa seats + chairs. Nothing climbable pressed against the railing.',
  tvwall:'Design ONE wall as a front elevation: the TV unit must be narrower than the wall and wider than the TV; the TV centre should sit 90-125 cm from the floor, so prefer a low unit. Shelves and wall lights go beside or above the TV, never overlapping it. Prefer cable management. Wall-mounted/wired items need drilling or an electrician - avoid them for renters. Keep the wall calm: a few well-chosen objects.'};
 function aiPrompt(room){const R=ROOMS[room.type];const lines=[];
-  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd:'-'} | ${x.tags}${room.pal?' | '+x.hex:''}`)}
+  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd+(isL(x)?' L-SHAPED (back depth '+x.sd+', leg width '+x.cw+(isCorner(x)?', corner':', chaise')+')':''):'-'} | ${x.tags}${room.pal?' | '+x.hex:''}`)}
   const styles=Object.entries(STYLES).map(([k,v])=>`${k}: ${v.name} — lens ${v.designer}. ${v.idea}`).join('\n');
-  const extra={living:`TV: ${room.tv}. Uses: ${[...room.uses].join(', ')}.`,bedroom:`Sleepers: ${room.sleepers}.`,kitchen:`Seats: ${room.seats}. Mode: ${room.mode}.`,bath:`Shower: ${room.shower}. Mode: ${room.mode}.`,office:`Space: ${room.space}. Work: ${room.work}.`,kids:`Age: ${room.age}. Kids: ${room.kids}.`,balcony:`Uses: ${[...room.bUses].join(', ')}. Seats: ${room.bSeats}. Floor: ${room.floor}.`,tvwall:`TV: ${room.tvIn} inch (about ${tvDims(room).w}x${tvDims(room).h} cm), ${room.tvMount==='wall'?'mounted on the wall':'standing on the unit'}. Unit position on the wall: ${room.tvPos}.`}[room.type];
+  const extra={living:`TV: ${room.tv}. Uses: ${[...room.uses].join(', ')}. Sofa type wanted: ${room.sofaType==='corner'?'corner/L-shaped only':room.sofaType==='straight'?'straight only':'any (corner only if it fits comfortably)'}${room.sofaType==='corner'&&room.cornerSide!=='auto'?', corner on the '+room.cornerSide+' side':''}.`,bedroom:`Sleepers: ${room.sleepers}.`,kitchen:`Seats: ${room.seats}. Mode: ${room.mode}.`,bath:`Shower: ${room.shower}. Mode: ${room.mode}.`,office:`Space: ${room.space}. Work: ${room.work}.`,kids:`Age: ${room.age}. Kids: ${room.kids}.`,balcony:`Uses: ${[...room.bUses].join(', ')}. Seats: ${room.bSeats}. Floor: ${room.floor}.`,tvwall:`TV: ${room.tvIn} inch (about ${tvDims(room).w}x${tvDims(room).h} cm), ${room.tvMount==='wall'?'mounted on the wall':'standing on the unit'}. Unit position on the wall: ${room.tvPos}.`}[room.type];
   const slotsList=R.slots.filter(s=>!s.on||s.on(room,{})).map(s=>s.k).join(', ');
   return `You are a top interior designer. Design a ${R.en} using ONLY the IKEA Israel products listed below (ids). Write every text field in Hebrew.
 ${room.type==='tvwall'?`WALL: ${room.W} cm wide, ceiling height ${room.D} cm (front elevation of the TV wall).`:`ROOM: main wall ${room.W} cm; depth ${room.D} cm. Window ${room.winWall==='none'?'none':'on '+room.winWall+' wall, '+room.winW+' cm'}, faces ${DIRS[room.dir]}. Door: ${room.door}.`} Renter: ${room.renter?'yes':'no'}. ${extra}
