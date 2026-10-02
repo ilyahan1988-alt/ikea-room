@@ -143,6 +143,7 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:var(--soft);color:var(--muted);margin-inline-start:5px;vertical-align:middle}
 .tag.warn{background:var(--warn-soft);color:var(--warn)}
 .tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.kz{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .empty{opacity:.55}
 .why{margin-top:12px;font-size:16px;line-height:1.65}
 .tips{margin:10px 0 0;padding-inline-start:20px;font-size:15px}
@@ -180,9 +181,9 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
 <body>
 <div class="wrap">
   <header class="hero">
-    <p class="eyebrow">איקאה ישראל · עיצוב פנים</p>
+    <p class="eyebrow">איקאה ישראל + Kaza · עיצוב פנים</p>
     <h1 id="heroTitle">הסלון שלך,<br>בעין של מעצב.</h1>
-    <p class="lead">בוחרים חדר, מכניסים מידות וטעם, ומקבלים שלושה עיצובים מלאים בהשראת מעצבים מובילים — רק ממוצרים אמיתיים של איקאה, עם תוכנית בקנה מידה ומחיר עד השקל.</p>
+    <p class="lead">בוחרים חדר, מכניסים מידות וטעם, ומקבלים שלושה עיצובים מלאים בהשראת מעצבים מובילים — רק ממוצרים אמיתיים מאיקאה ומ-Kaza, עם תוכנית בקנה מידה ומחיר עד השקל.</p>
     <div class="collage" aria-hidden="true">
       <div class="t t1"><img alt=""></div>
       <div class="t t2"><img alt=""></div>
@@ -241,6 +242,8 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
     <label class="f" style="margin-top:14px"><span>החדר פתוח לחדר אחר?</span></label><div class="chips" id="opensChips"></div>
         <label class="f"><span>מה אוהבים</span></label><div class="chips" id="likeChips"></div>
     <label class="f"><span>מה לא רוצים</span></label><div class="chips" id="disChips"></div>
+    <label class="f"><span>איפה קונים</span></label><div class="chips" id="storeChips"></div>
+    <p class="hint">Kaza מוסיפה רהיטי מעצבים — ספות, כורסאות, שולחנות, כיסאות, מיטות, מזנונים, ספריות ומראות. תאורה, טקסטיל ואביזרים נשארים מאיקאה. הרהיטים של Kaza יקרים יותר, אז כדאי תקציב גבוה יותר.</p>
     <div class="budget"><span class="muted small">תקציב לכל עיצוב</span><b id="budgetOut"></b></div>
     <input type="range" id="budget" min="500" max="15000" step="250" aria-label="תקציב">
   </section>
@@ -254,18 +257,19 @@ input[type=range]{width:100%;accent-color:var(--accent);min-height:34px}
     <div class="card" id="concept"></div>
   </section>
 
-  <p class="foot">המחירים והמידות נאספו מאתר איקאה ישראל בספטמבר 2026 — כדאי לוודא לפני קנייה. אין כאן קישורי שותפים. מידות שמסומנות „משוערת״ לא הופיעו באתר.</p>
+  <p class="foot">המחירים והמידות נאספו מאתרי איקאה ישראל ו-Kaza בספטמבר–אוקטובר 2026 — כדאי לוודא לפני קנייה. מחירי Kaza הם מחירון לפני מבצעים, בלי משלוח והרכבה. אין כאן קישורי שותפים. מידות שמסומנות „משוערת״ לא הופיעו באתר.</p>
 </div>
 
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="catalog.js?v=1790973817"></script>
-<script src="catalog2.js?v=1790973817"></script>
-<script src="catalog3.js?v=1790973817"></script>
-<script src="catalog4.js?v=1790973817"></script>
-<script src="catalog5.js?v=1790973817"></script>
-<script src="app.js?v=1790973817"></script>
+<script src="catalog.js?v=1790978735"></script>
+<script src="catalog2.js?v=1790978735"></script>
+<script src="catalog3.js?v=1790978735"></script>
+<script src="catalog4.js?v=1790978735"></script>
+<script src="catalog5.js?v=1790978735"></script>
+<script src="catalog6.js?v=1790978735"></script>
+<script src="app.js?v=1790978735"></script>
 </body>
 </html>

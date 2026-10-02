@@ -1,7 +1,7 @@
 "use strict";
 // ================= data =================
-const ROWS=[...window.CAT_RAW,...(window.CAT_RAW2||[]),...(window.CAT_RAW3||[]),...(window.CAT_RAW4||[]),...(window.CAT_RAW5||[])];
-const CAT=ROWS.map(r=>({id:r[0],slot:r[1],tags:r[2],n:r[3],v:r[4],p:r[5],u:r[6],fw:r[7],fd:r[8],hex:r[9],est:!!r[10],h:r[11]||0,wall:!!r[12],sd:r[13]||0,cw:r[14]||0}));
+const ROWS=[...window.CAT_RAW,...(window.CAT_RAW2||[]),...(window.CAT_RAW3||[]),...(window.CAT_RAW4||[]),...(window.CAT_RAW5||[]),...(window.CAT_RAW6||[])];
+const CAT=ROWS.map(r=>({id:r[0],slot:r[1],tags:r[2],n:r[3],v:r[4],p:r[5],u:r[6],fw:r[7],fd:r[8],hex:r[9],est:!!r[10],h:r[11]||0,wall:!!r[12],sd:r[13]||0,cw:r[14]||0,st:r[15]==='K'?'K':'I'}));
 const BY=Object.fromEntries(CAT.map(x=>[x.id,x]));
 // L-shaped sofas (corner / chaise): fw = overall width along the wall, fd = overall depth, sd = depth of the back part, cw = width of the return leg
 const isL=x=>!!(x&&!x.keep&&x.sd&&x.cw);
@@ -62,6 +62,9 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const ils=n=>'₪'+Math.round(n).toLocaleString('he-IL');
 const img=id=>(window.IMGS&&window.IMGS[id])||('p/'+id+'.jpg');
 const ikeaUrl=x=>'https://www.ikea.com/il/he/p/'+x.u+'/';
+const isKaza=x=>!!x&&x.st==='K';
+const prodUrl=x=>isKaza(x)?'https://kaza.co.il/product/'+encodeURIComponent(x.u)+'/':ikeaUrl(x);
+const STORES={both:'איקאה + Kaza',ikea:'איקאה בלבד',kaza:'Kaza ככל האפשר'};
 function hsl(hex){const n=parseInt(hex.slice(1),16);let r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0;const l=(mx+mn)/2;if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60}return{h,s,l}}
 function colorCls(hex){const {h,s,l}=hsl(hex);const c=[];if(l<0.24)c.push('black');else if(l>0.9)c.push('white');if(s<0.12&&l>=0.24&&l<=0.9)c.push('grey');if(h>=20&&h<=55&&s>=0.08&&s<0.5&&l>0.55)c.push('beige');if(s>=0.45&&l>0.25&&l<0.75)c.push('bold');if(h>=70&&h<=170&&s>0.12&&l<0.8)c.push('green');if(h>=190&&h<=250&&s>0.15)c.push('blue');if(h>=15&&h<=45&&l<0.62&&l>0.2&&s>0.25)c.push('wood');return c}
 CAT.forEach(x=>x.cls=colorCls(x.hex));
@@ -180,6 +183,7 @@ if(!F){const old=store.get('ikea-room-form')||{};F={room:'living',renter:old.ren
   for(const t in PER_DEF)F.per[t]=Object.assign({},PER_DEF[t]);
   for(const k of Object.keys(PER_DEF.living))if(old[k]!==undefined)F.per.living[k]=old[k];}
 for(const t in PER_DEF)F.per[t]=Object.assign({},PER_DEF[t],F.per[t]||{});
+if(!Object.prototype.hasOwnProperty.call(STORES,F.stores))F.stores='both';
 const HEXRE=/^#[0-9a-f]{6}$/i;
 function cleanPal(p){if(!p||typeof p!=='object')return;
   if(!Array.isArray(p.pal)||p.pal.length!==3||!p.pal.every(h=>typeof h==='string'&&HEXRE.test(h)))p.pal=CUSTOM_PAL.slice();
@@ -260,6 +264,7 @@ function initForm(){
   const rt=$('#roomTabs');rt.innerHTML='';
   for(const [k,R] of Object.entries(ROOMS)){const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.room=k;b.textContent=R.he;b.onclick=()=>{F.room=k;saveForm();renderRoomForm();$('#results').classList.add('hidden')};rt.appendChild(b)}
   $('#renter').checked=F.renter;$('#renter').onchange=e=>{F.renter=e.target.checked;saveForm();modeHint()};
+  chipGroup($('#storeChips'),STORES,()=>F.stores,false,k=>{F.stores=k});
   chipGroup($('#likeChips'),LIKES,()=>F.likes,true,k=>{F.likes=toggleIn(F.likes,k)});
   chipGroup($('#disChips'),DISLIKES,()=>F.dis,true,k=>{F.dis=toggleIn(F.dis,k)},true);
   $('#photo').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;photoFile=f;const u=URL.createObjectURL(f);$('#phPrev').outerHTML='<img id="phPrev" alt="התמונה שלך" src="'+u+'">';refreshAi()};
@@ -271,14 +276,14 @@ function initForm(){
 // ================= room model =================
 function roomOf(){
   const p=P(),t=F.room;const W=Math.max(t==='balcony'?80:120,p.W||280),D=Math.max(t==='balcony'?60:t==='tvwall'?200:120,p.D||200);
-  const r={type:t,W,D,winWall:p.winWall,winW:Math.max(40,p.winW||100),door:p.door,dir:p.dir,renter:F.renter,keep:new Set(p.keep),likes:F.likes,dis:F.dis,budget:p.budget,
+  const r={type:t,W,D,winWall:p.winWall,winW:Math.max(40,p.winW||100),door:p.door,dir:p.dir,renter:F.renter,stores:Object.prototype.hasOwnProperty.call(STORES,F.stores)?F.stores:'both',keep:new Set(p.keep),likes:F.likes,dis:F.dis,budget:p.budget,
     tv:p.tv||'none',uses:new Set(p.uses||[]),sleepers:p.sleepers||'couple',seats:p.seats||4,mode:p.mode||'refresh',shower:p.shower||'curtain',
     space:p.space||'room',work:p.work||'monitor',age:p.age||'school',kids:+p.kids||1,bUses:new Set(p.bUses||[]),bSeats:+p.bSeats||2,floor:p.floor||'keep'};
   if(t==='balcony')r.winWall='none';
   r.pal=resolvePal(p);r.opens=p.opens||'';r.sofaType=['straight','corner'].includes(p.sofaType)?p.sofaType:'any';r.cornerSide=['left','right'].includes(p.cornerSide)?p.cornerSide:'auto';
   if(t==='tvwall'){r.winWall='none';r.door='none';r.tvIn=[43,50,55,65,75,85].includes(+p.tvIn)?+p.tvIn:55;r.tvMount=p.tvMount==='stand'?'stand':'wall';r.tvPos=['left','right'].includes(p.tvPos)?p.tvPos:'center';r.keptUnit={fw:Math.max(60,p.kuW||160),h:Math.max(20,p.kuH||50)}}
   r.tvd=t==='living'?(r.tv==='unit'?40:r.tv==='wall'?8:0):0;
-  if(t==='living'&&r.sofaType==='corner'&&!r.keep.has('sofa')&&!CAT.some(x=>x.slot==='sofa'&&isL(x)&&!lOrient(x,r).fail)){r.sofaType='any';r.sofaFallback=true}
+  if(t==='living'&&r.sofaType==='corner'&&!r.keep.has('sofa')&&!CAT.some(x=>x.slot==='sofa'&&isL(x)&&(r.stores!=='ikea'||!isKaza(x))&&!lOrient(x,r).fail)){r.sofaType='any';r.sofaFallback=true}
   r.keptSofa=t==='living'&&r.keep.has('sofa')?{fw:Math.max(80,p.ksW||200),fd:Math.max(50,p.ksD||90)}:null;
   return r;
 }
@@ -296,7 +301,7 @@ function fitCheck(x,slot,sel,room){
    switch(slot){
     case 'sofa':{const xl=isL(x),stp=room.sofaType||'any';if(stp==='straight'&&xl){ok=false;why='ספה פינתית';break}if(stp==='corner'&&!xl){ok=false;why='לא פינתית';break}
       if(xl){const o=lOrient(x,room);if(o.fail){ok=false;why=o.fail;break}if(stp==='any'&&x.fw-x.cw<90){ok=false;why='אין מקום לשולחן קפה ליד הזרוע';break}if(lGeom(x,room).door){if(stp==='any'){ok=false;why='חוסמת את הדלת';break}bonus-=8}const tg=Math.min(Math.max(W*0.78,220),310);bonus-=Math.abs(o.w-tg)/(stp==='corner'?12:30);bonus-=Math.max(0,o.d-0.55*(D-tvd))/8;if(room.uses.has('host'))bonus+=1.5;if(W>=330&&D-tvd>=300)bonus+=1.5;if(stp==='corner')bonus+=3;if(W-o.w<20)bonus-=0.5;break}
-      if(x.fw>W-10){ok=false;why='רחבה מהקיר';break}if(x.fd>D-tvd-SEAT_GAP-MIN_PASS){ok=false;why='עמוקה מדי לחדר';break}{const dB=doorBox(room);if(dB&&dB.y+dB.h>D-x.fd&&x.fw>(dB.x<W/2?W-dB.x-dB.w-6:dB.x-6)){bonus-=8;why='חוסמת את הדלת'}}const tg=Math.min(Math.max(W*0.72,120),230);bonus-=Math.abs(x.fw-tg)/25;bonus-=Math.max(0,x.fd-0.42*D)/8;if(room.uses.has('host')&&x.fw>=180)bonus+=1.5;if(W-x.fw>=48)bonus+=1;break}
+      if(x.fw>W-10){ok=false;why='רחבה מהקיר';break}if(x.fd>D-tvd-SEAT_GAP-MIN_PASS){ok=false;why='עמוקה מדי לחדר';break}{const dB=doorBox(room);if(dB&&dB.y+dB.h>D-x.fd&&x.fw>(dB.x<W/2?W-dB.x-dB.w-6:dB.x-6)){ok=false;why='חוסמת את הדלת';break}}const tg=Math.min(Math.max(W*0.72,120),230);bonus-=Math.abs(x.fw-tg)/25;bonus-=Math.max(0,x.fd-0.42*D)/8;if(room.uses.has('host')&&x.fw>=180)bonus+=1.5;if(W-x.fw>=48)bonus+=1;break}
     case 'coffee':{const av=D-tvd-sd-SEAT_GAP-MIN_PASS;if(x.fd>av){ok=false;why='לא נשאר מעבר של 60 ס״מ';break}if(Ls&&x.fw>nWd-40){ok=false;why='לא נכנס בפינת הישיבה';break}const r=Ls?x.fw/nWd:sw?x.fw/sw:0.6;if(r>0.8){bonus-=3;why='ארוך יחסית לספה'}else if(r<0.4)bonus-=1.5;if(av-x.fd>=GOOD_PASS-MIN_PASS)bonus+=1;break}
     case 'rug':{if(x.fw>W-20||x.fd>D-tvd-20){ok=false;why='גדול מהחדר';break}if(sw&&x.fw<sw*0.6){bonus-=3;why='קטן ביחס לספה'}else if(sw&&x.fw>=sw*0.85)bonus+=2;bonus-=Math.max(0,Math.min(W-40,sw+40)-x.fw)/30;break}
     case 'arm':{if(!layout(room,Object.assign({},sel,{arm:{id:x.id}})).pos.arm){ok=false;why='אין מקום בלי לחסום מעבר'}else if(room.uses.has('read'))bonus+=0.5;break}
@@ -395,6 +400,8 @@ function harmonyChecks(room,out){const o=room.opens;if(!o||!ROOMS[o]||o===room.t
   else out.push(['ok',`הערת מעצב: לפחות אחת הפלטות ניטרלית, והמעבר בין החללים יהיה רך. לחיבור, חזרו על "${other.n[0]}" מהפלטה של ה${oh} בפריט קטן אחד.`])}
 
 // ================= scoring / builder =================
+const KAZA_PREF=25; // 'Kaza as much as possible': beats the style/price differences of IKEA alternatives, but stays below fitBudget's relaxed tolerance (40) so the budget still wins
+const KAZA_BOOST=5; // in 'both' mode: a small nudge so the designer pieces of Kaza actually show up next to the cheaper IKEA ones
 function scoreItem(x,slot,style,room,sel){
   let s=0;if(x.tags.includes(style)){s+=10;if(x.tags[0]===style)s+=2}else s-=(room.pal&&PAL_ROLE[slot]!==undefined?PAL_STYLE_MISS:6);
   for(const k of room.likes){const L=LIKES[k];if(L&&L.cls.some(c=>x.cls.includes(c)))s+=1.2}
@@ -408,9 +415,11 @@ function scoreItem(x,slot,style,room,sel){
   const f=fitCheck(x,slot,sel,room);
   // big rooms: the relaxed styles (Studio McGee, Vervoordt) get an L-shaped sofa so the three concepts are not all alike
   if(slot==='sofa'&&room.type==='living'&&isL(x)&&room.sofaType==='any'&&'WM'.includes(style)&&room.W>=300&&room.D-room.tvd>=270)s+=5;
+  if(isKaza(x))s+=room.stores==='kaza'?KAZA_PREF:room.stores==='both'?KAZA_BOOST:0;
   return{s:s+f.bonus,ok:f.ok,why:f.why};
 }
-function candidates(slot,style,room,sel){const d=SLOTDEF(room.type)[slot];return CAT.filter(x=>catHas(d,x)).map(x=>Object.assign({x},scoreItem(x,slot,style,room,sel))).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s))}
+const inStore=(x,room)=>!(room&&room.stores==='ikea'&&isKaza(x));
+function candidates(slot,style,room,sel){const d=SLOTDEF(room.type)[slot];return CAT.filter(x=>catHas(d,x)&&inStore(x,room)).map(x=>Object.assign({x},scoreItem(x,slot,style,room,sel))).sort((a,b)=>(b.ok-a.ok)||(b.s-a.s))}
 function chooseStyles(room){const sc={};for(const k in STYLES)sc[k]=STYLE_BASE[k];for(const l of room.likes)for(const [k,v] of Object.entries((LIKES[l]||{}).st||{}))sc[k]+=v;for(const d of room.dis)for(const [k,v] of Object.entries((DISLIKES[d]||{}).st||{}))sc[k]+=v;return Object.keys(sc).sort((a,b)=>sc[b]-sc[a]).slice(0,3)}
 function pick(slot,style,room,sel){const cs=candidates(slot,style,room,sel);return cs.find(c=>c.ok)||null}
 function buildSel(style,room){
@@ -423,6 +432,7 @@ function buildSel(style,room){
   return sel;
 }
 const activeSlots=(room,sel)=>ROOMS[room.type].slots.filter(s=>!s.on||s.on(room,sel));
+const usesKaza=c=>!!c&&Object.values(c.sel||{}).some(e=>e&&!e.keep&&e.id!=null&&isKaza(BY[e.id]));
 function totalOf(sel){let t=0;for(const k in sel){const e=sel[k];if(e&&!e.keep&&e.id!=null&&BY[e.id])t+=BY[e.id].p*(e.qty||1)}return t}
 function fitBudget(c,room){
   const sel=c.sel;let guard=0;const dropped=[];
@@ -920,8 +930,10 @@ function renderConcept(){
       if(e&&e.keep){h+=`<div class="item"><div class="ph" style="width:76px;height:76px;border-radius:14px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)">מהבית</div><div><div class="sl">${s.he}</div><div class="vr">נשאר מהבית — העיצוב נבנה סביבו</div></div><div></div></div>`;continue}
       if(!e||!BY[e.id]){h+=`<div class="item empty"><div style="width:76px;height:76px;border-radius:14px;border:1px dashed var(--line)"></div><div><div class="sl">${s.he}</div><div class="vr">בלי</div><div class="acts"><button data-swap="${s.k}">הוספה</button></div></div><div></div></div>`;continue}
       const x=BY[e.id];const q=e.qty||1;const fit=fitCheck(x,s.k,c.sel,room);
-      h+=`<div class="item"><img src="${img(x.id)}" alt="" loading="lazy"><div><div class="sl">${s.he}${q>1?' ×'+q:''}${x.est&&x.fw?'<span class="tag warn">מידה משוערת</span>':''}${!fit.ok?'<span class="tag warn">'+esc(fit.why)+'</span>':''}${e.lock?'<span class="tag ok">בחירה שלך</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="vr">${esc(x.v)}</div><div class="acts"><button data-swap="${s.k}">החלפה</button><a href="${ikeaUrl(x)}" target="_blank" rel="noopener">באיקאה ↗</a></div></div><div class="pr">${ils(x.p*q)}</div></div>`}
+      h+=`<div class="item"><img src="${img(x.id)}" alt="" loading="lazy"><div><div class="sl">${s.he}${q>1?' ×'+q:''}${isKaza(x)?'<span class="tag kz">מ-Kaza</span>':''}${x.est&&x.fw?'<span class="tag warn">מידה משוערת</span>':''}${!fit.ok?'<span class="tag warn">'+esc(fit.why)+'</span>':''}${e.lock?'<span class="tag ok">בחירה שלך</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="vr">${esc(x.v)}</div><div class="acts"><button data-swap="${s.k}">החלפה</button><a href="${prodUrl(x)}" target="_blank" rel="noopener">${isKaza(x)?'ב-Kaza':'באיקאה'} ↗</a></div></div><div class="pr">${ils(x.p*q)}</div></div>`}
     h+=`</div>`}
+  if(room.stores==='kaza'&&!usesKaza(c))h+=`<p class="hint">${ROOMS[room.type].slots.some(s=>CAT.some(x=>isKaza(x)&&catHas(s,x)))?'בחרתם Kaza, אבל בתקציב הזה לא נכנס אף מוצר שלהם — הרהיטים של Kaza יקרים יותר מאיקאה. אפשר להעלות את התקציב.':'ל-Kaza אין מוצרים לחדר מהסוג הזה — העיצוב כולו מאיקאה.'}</p>`;
+  if(usesKaza(c))h+=`<p class="hint">מוצרי Kaza: המחיר הוא מחירון באתר, לפני מבצעים ובלי משלוח והרכבה — כדאי לבדוק באתר. המידות לפי מאפיין הגודל של המוצר.</p>`;
   if(room.type==='living'||room.type==='bedroom')h+=`<p class="hint">כיסויי כריות נמכרים בלי מילוי — צריך כרית פנימית בנפרד.</p>`;
   if(room.type==='kitchen'&&room.mode==='renovate')h+=`<p class="hint"><a href="https://www.ikea.com/il/he/planners/kitchen-planner/" target="_blank" rel="noopener">לתכנון ארונות מטבח מלא — כלי התכנון של איקאה ↗</a></p>`;
   h+=`<h3 style="margin-top:18px">טיפים של המעצב</h3><ul class="tips">${(c.tips&&c.tips.length?c.tips:st.tips).map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`;
@@ -939,7 +951,7 @@ function openSwap(slot){
   let h=`<div class="hd"><div><h3>${esc(sd.he)}</h3><p class="muted small">ממוין לפי התאמה ל${esc(STYLES[c.style].name)} ולחדר</p></div><button class="btn sm ghost" id="closeS">סגירה</button></div>`;
   h+=`<button class="alt" data-id="none"><div style="width:60px;height:60px;border-radius:12px;border:1px dashed var(--line)"></div><div><b>בלי ${esc(sd.he)}</b><div class="muted small">להוריד מהעיצוב</div></div><div class="d dn">${cur?'−'+ils(cur.p*(e.qty||1)):''}</div></button>`;
   for(const cd of cands){const x=cd.x;const q=qtyFor(slot,x,rest,room);const diff=x.p*q-(cur?cur.p*(e.qty||1):0);const isCur=cur&&cur.id===x.id;
-    h+=`<button class="alt" data-id="${x.id}" ${isCur?'aria-current="true"':''} ${cd.ok?'':'disabled'}><img src="${img(x.id)}" alt="" loading="lazy"><div><b style="direction:ltr;unicode-bidi:plaintext">${esc(x.n)}</b>${x.tags.includes(c.style)?'<span class="tag ok">בסגנון</span>':''}${cd.why?'<span class="tag warn">'+esc(cd.why)+'</span>':''}<div class="muted small">${esc(x.v)}${q>1?' · ×'+q:''}</div></div><div class="d ${diff<0?'dn':diff>0?'up':''}">${isCur?'נוכחי':(diff>0?'+':diff<0?'−':'')+(diff?ils(Math.abs(diff)):'אותו מחיר')}</div></button>`}
+    h+=`<button class="alt" data-id="${x.id}" ${isCur?'aria-current="true"':''} ${cd.ok?'':'disabled'}><img src="${img(x.id)}" alt="" loading="lazy"><div><b style="direction:ltr;unicode-bidi:plaintext">${esc(x.n)}</b>${isKaza(x)?'<span class="tag kz">Kaza</span>':''}${x.tags.includes(c.style)?'<span class="tag ok">בסגנון</span>':''}${cd.why?'<span class="tag warn">'+esc(cd.why)+'</span>':''}<div class="muted small">${esc(x.v)}${q>1?' · ×'+q:''}</div></div><div class="d ${diff<0?'dn':diff>0?'up':''}">${isCur?'נוכחי':(diff>0?'+':diff<0?'−':'')+(diff?ils(Math.abs(diff)):'אותו מחיר')}</div></button>`}
   openSheet(h);
   $('#sheet').querySelectorAll('.alt').forEach(b=>b.onclick=()=>{const id=b.dataset.id;if(id==='none')c.sel[slot]=null;else{const x=BY[+id];c.sel[slot]={id:x.id,qty:qtyFor(slot,x,c.sel,room),lock:true}}revalidate(c,room,slot);closeSheet();renderAll()});
 }
@@ -955,12 +967,12 @@ function openSheet(h){$('#sheet').innerHTML=h;$('#sheet').classList.add('on');$(
 function closeSheet(){$('#sheet').classList.remove('on');$('#scrim').classList.remove('on')}
 
 // ================= list / Gemini =================
-function listText(c){const st=STYLES[c.style];let t=`${ROOMS[ROOM.type].he} · ${c.title||st.name} — בהשראת ${st.designer}\n`;for(const s of activeSlots(ROOM,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;const x=BY[e.id];t+=`• ${s.he}: ${x.n} — ${x.v}${(e.qty||1)>1?' ×'+e.qty:''} — ${ils(x.p*(e.qty||1))}\n  ${ikeaUrl(x)}\n`}return t+`סה״כ: ${ils(totalOf(c.sel))}`}
+function listText(c){const st=STYLES[c.style];let t=`${ROOMS[ROOM.type].he} · ${c.title||st.name} — בהשראת ${st.designer}\n`;for(const s of activeSlots(ROOM,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;const x=BY[e.id];t+=`• ${s.he}: ${x.n} — ${x.v}${(e.qty||1)>1?' ×'+e.qty:''} — ${ils(x.p*(e.qty||1))}${isKaza(x)?' (Kaza)':''}\n  ${prodUrl(x)}\n`}return t+`סה״כ: ${ils(totalOf(c.sel))}`+(usesKaza(c)?'\nהערה: מחירי Kaza הם מחירון לפני מבצעים, בלי משלוח והרכבה.':'')}
 function geminiPrompt(c){const st=STYLES[c.style],room=ROOM,R=ROOMS[room.type];const keep=[...room.keep];const lines=[];let i=1;
-  for(const s of activeSlots(room,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;lines.push(`${i++}. ${BY[e.id].n} (${catName(s)}${(e.qty||1)>1?' x'+e.qty:''})`)}
+  for(const s of activeSlots(room,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;lines.push(`${i++}. ${BY[e.id].n}${isKaza(BY[e.id])?' [Kaza]':''} (${catName(s)}${(e.qty||1)>1?' x'+e.qty:''})`)}
   const place={living:(()=>{const e=c.sel&&c.sel.sofa,x=e&&!e.keep&&BY[e.id],g=x&&isL(x)?lGeom(x,room):null;return g?`The sofa is L-shaped (${isCorner(x)?'corner sofa':'sofa with a chaise longue'}): put it in the ${g.side==='l'?'left':'right'} corner of the room with its ${g.o.w} cm back along the wall and its ${x.cw} cm wide ${isCorner(x)?'return leg':'chaise'} reaching ${g.ld} cm into the room; put the coffee table and rug in the open space beside the leg; keep a clear 60–90 cm walkway.`:`Place the sofa against the ${room.W} cm wall; keep a clear 60–90 cm walkway in front of it; rug under the sofa's front legs.`})(),bedroom:`Bed headboard centred on the ${room.W} cm wall, bedside tables on both sides, at least 60 cm to walk around the bed.`,kitchen:`Keep the existing kitchen cabinets${room.mode==='renovate'?' but replace the sink and tap with the ones listed':''}; place the dining table with at least 90 cm from the counter.`,bath:`Keep the existing toilet, shower/bath and tiles${room.mode==='renovate'?'; replace the vanity and mirror with the ones listed':''}.`,office:`Desk against the ${room.W} cm wall with the chair in front of it, about 90 cm free behind the chair; task lamp on the desk.`,kids:`A child's room: bed along a wall, a clear play area in the middle of the floor, storage low and reachable.`,balcony:`This is an outdoor balcony: house wall with the door at the bottom, railing opposite. Keep a clear 70 cm path from the door. Outdoor furniture only.`,tvwall:`This is ONE feature wall seen straight on: the TV unit centred under the ${room.tvIn}-inch TV (${room.tvMount==='wall'?'wall-mounted':'standing on the unit'}), shelves and wall lights beside or above the TV, a picture and a plant beside the unit, cables hidden. Keep the existing TV; do not move the walls, windows or sockets.`}[room.type];
   return `Edit the attached ${R.en} photo. Keep the exact camera angle, perspective, walls, window, floor, ceiling and daylight. ${keep.length?'Keep the existing '+keep.join(', ')+'.':'Remove the existing loose furniture and decor.'}
-Furnish it in a ${st.en} style (in the spirit of ${st.designer}) using ONLY the IKEA products in the second image (numbered product sheet). Match each product's exact shape, colour and material — do not invent other furniture.
+Furnish it in a ${st.en} style (in the spirit of ${st.designer}) using ONLY the products in the second image (numbered product sheet, from IKEA and Kaza). Match each product's exact shape, colour and material — do not invent other furniture.
 ${room.type==='tvwall'?`Wall: ${room.W} cm wide x ${room.D} cm ceiling height.`:`Room: ${room.W} x ${room.D} cm.`} ${place}
 Products:
 ${lines.join('\n')}
@@ -968,9 +980,9 @@ Colour palette: ${(palFor(c.style,room)||st).c?palFor(c.style,room).c.join(', ')
 async function geminiSheet(c){
   const st=STYLES[c.style];const items=[];for(const s of activeSlots(ROOM,c.sel)){const e=c.sel[s.k];if(!e||e.keep||!BY[e.id])continue;items.push({x:BY[e.id],q:e.qty||1})}
   const cols=4,cw=300,ch=360,pad=24,head=150,rows=Math.ceil(items.length/cols);const cv=document.createElement('canvas');cv.width=cols*cw+pad*2;cv.height=head+rows*ch+pad;const g=cv.getContext('2d');
-  let blob=null;if(g){g.fillStyle='#fff';g.fillRect(0,0,cv.width,cv.height);g.fillStyle='#1d1c1a';g.font='600 40px Georgia, serif';g.textAlign='left';g.fillText('IKEA product sheet — '+st.en,pad,62);g.font='24px Arial';g.fillStyle='#6b675f';g.fillText(ROOMS[ROOM.type].en+' · use ONLY these products · '+ROOM.W+' x '+ROOM.D+' cm',pad,100);
+  let blob=null;if(g){g.fillStyle='#fff';g.fillRect(0,0,cv.width,cv.height);g.fillStyle='#1d1c1a';g.font='600 40px Georgia, serif';g.textAlign='left';g.fillText('Product sheet — '+st.en,pad,62);g.font='24px Arial';g.fillStyle='#6b675f';g.fillText(ROOMS[ROOM.type].en+' · use ONLY these products · '+ROOM.W+' x '+ROOM.D+' cm',pad,100);
     st.pal.forEach((p,i)=>{g.fillStyle=p[0];g.fillRect(cv.width-pad-(5-i)*54,40,48,48)});
-    await Promise.all(items.map((it,i)=>new Promise(res=>{const im=new Image();im.onload=()=>{const x=pad+(i%cols)*cw,y=head+Math.floor(i/cols)*ch;g.drawImage(im,x+10,y,cw-20,cw-20);g.fillStyle='#1d1c1a';g.font='600 22px Arial';g.fillText((i+1)+'. '+it.x.n+(it.q>1?' x'+it.q:''),x+10,y+cw+8);g.font='18px Arial';g.fillStyle='#6b675f';g.fillText(it.x.u.split('-').slice(1).filter(w=>!/\d{5,}/.test(w)).join(' ').slice(0,32),x+10,y+cw+34);res()};im.onerror=res;im.src=img(it.x.id)})));
+    await Promise.all(items.map((it,i)=>new Promise(res=>{const im=new Image();im.onload=()=>{const x=pad+(i%cols)*cw,y=head+Math.floor(i/cols)*ch;g.drawImage(im,x+10,y,cw-20,cw-20);g.fillStyle='#1d1c1a';g.font='600 22px Arial';g.fillText((i+1)+'. '+it.x.n+(it.q>1?' x'+it.q:''),x+10,y+cw+8);g.font='18px Arial';g.fillStyle='#6b675f';g.fillText(isKaza(it.x)?('Kaza · '+it.x.v).slice(0,34):it.x.u.split('-').slice(1).filter(w=>!/\d{5,}/.test(w)).join(' ').slice(0,32),x+10,y+cw+34);res()};im.onerror=res;im.src=img(it.x.id)})));
     blob=await new Promise(r=>cv.toBlob(r,'image/png'))}
   const prompt=geminiPrompt(c);
   openSheet(`<div class="hd"><h3>הדמיה ב-Gemini</h3><button class="btn sm ghost" id="closeS">סגירה</button></div><ol class="tips"><li>שומרים את גיליון המוצרים.</li><li>פותחים את Gemini, מעלים את <b>תמונת החדר</b> + <b>הגיליון</b>.</li><li>מדביקים את ההנחיה ושולחים. לתיקונים — כותבים באותה שיחה.</li></ol>${blob?`<img alt="גיליון מוצרים" style="width:100%;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:#fff" src="${URL.createObjectURL(blob)}">`:''}<div class="actions"><button class="btn" id="saveSheet">שמירת הגיליון</button><button class="btn ghost" id="copyP">העתקת ההנחיה</button></div><a class="btn ghost block" style="margin-top:8px" href="https://gemini.google.com/app" target="_blank" rel="noopener">פתיחת Gemini ↗</a><p class="hint">ההדמיה נותנת תחושה, אבל לא שומרת על מידות — התוכנית היא האמת לגבי מה נכנס.</p><label class="f"><span>ההנחיה (באנגלית, עובד טוב יותר)</span><textarea readonly id="pTxt">${esc(prompt)}</textarea></label>`);
@@ -987,15 +999,15 @@ $('#scrim').onclick=closeSheet;
 const SITE='https://ilyahan1988-alt.github.io/ikea-room/';
 const b64u={enc:s=>btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),dec:s=>decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))))};
 function shareUrl(c){const sel={};for(const [k,e] of Object.entries(c.sel)){sel[k]=!e?0:e.keep?'k':[e.id,e.qty||1]}
-  return SITE+'#d='+b64u.enc(JSON.stringify({v:1,r:ROOM.type,p:F.per[ROOM.type],rt:F.renter,s:c.style,t:c.title||'',w:c.why||'',sel}))}
-async function shareDesign(c){const url=shareUrl(c);const R=ROOMS[ROOM.type];const text=`עיצוב ל${R.he} מאיקאה — ${c.title||STYLES[c.style].name}, ${ils(totalOf(c.sel))}`;
+  return SITE+'#d='+b64u.enc(JSON.stringify({v:1,r:ROOM.type,p:F.per[ROOM.type],rt:F.renter,sr:F.stores,s:c.style,t:c.title||'',w:c.why||'',sel}))}
+async function shareDesign(c){const url=shareUrl(c);const R=ROOMS[ROOM.type];const text=`עיצוב ל${R.he} ${usesKaza(c)?'מאיקאה ו-Kaza':'מאיקאה'} — ${c.title||STYLES[c.style].name}, ${ils(totalOf(c.sel))}`;
   if(navigator.share){try{await navigator.share({title:'חדר באיקאה',text,url});return}catch(e){if(e&&e.name==='AbortError')return}}
   showText('קישור לעיצוב',url,'העתקת הקישור')}
 function feedback(c){const url=c?shareUrl(c):SITE;const txt=`משוב על "חדר באיקאה":\n\nמה עבד: \nמה לא עבד: \n\nהעיצוב שלי: ${url}`;
   openSheet(`<div class="hd"><h3>משוב</h3><button class="btn sm ghost" id="closeS">סגירה</button></div><p class="muted">מה אהבתם, מה הרגיש לא נכון, מה חסר? ההודעה נפתחת ב-WhatsApp עם קישור לעיצוב שלכם — בוחרים למי לשלוח.</p><div class="actions"><a class="btn" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">שליחה ב-WhatsApp</a><button class="btn ghost" id="fbCopy">העתקת ההודעה</button></div>`);
   $('#fbCopy').onclick=()=>copyText(txt)}
 function loadShared(){const m=location.hash.match(/^#d=(.+)$/);if(!m)return false;let d;try{d=JSON.parse(b64u.dec(m[1]))}catch(e){return false}
-  if(!d||!ROOMS[d.r]||!STYLES[d.s])return false;F.room=d.r;F.per[d.r]=Object.assign({},PER_DEF[d.r],d.p||{});cleanPal(F.per[d.r]);if(typeof d.rt==='boolean')F.renter=d.rt;$('#renter').checked=F.renter;renderRoomForm();
+  if(!d||!ROOMS[d.r]||!STYLES[d.s])return false;F.room=d.r;F.per[d.r]=Object.assign({},PER_DEF[d.r],d.p||{});cleanPal(F.per[d.r]);if(typeof d.rt==='boolean')F.renter=d.rt;if(typeof d.sr==='string'&&Object.prototype.hasOwnProperty.call(STORES,d.sr))F.stores=d.sr;$('#renter').checked=F.renter;renderRoomForm();
   F.per[d.r].opens='';ROOM=roomOf();ROOM.styleRank=Object.fromEntries([d.s].concat(chooseStyles(ROOM).filter(k=>k!==d.s).slice(0,2)).map((k,i)=>[k,i]));const sel={};for(const s of ROOMS[d.r].slots){const v=d.sel&&d.sel[s.k];sel[s.k]=v==='k'?{keep:true}:Array.isArray(v)&&BY[v[0]]&&catHas(s,BY[v[0]])?{id:v[0],qty:Math.max(1,Math.min(12,+v[1]||1)),lock:true}:null}
   const shared={style:d.s,sel,src:'shared',room:d.r,title:String(d.t||'').slice(0,40),why:String(d.w||'').slice(0,400)};
   CONCEPTS=[shared].concat(chooseStyles(ROOM).filter(k=>k!==d.s).slice(0,2).map(k=>localConcept(k,ROOM)));ACTIVE=0;renderAll();
@@ -1014,11 +1026,11 @@ const RULES={living:'Sofa depth + 42 + coffee-table depth + 60 must fit the room
  balcony:'Outdoor products only. Keep a 70 cm path from the door. Seats = sofa seats + chairs. Nothing climbable pressed against the railing.',
  tvwall:'Design ONE wall as a front elevation: the TV unit must be narrower than the wall and wider than the TV; the TV centre should sit 90-125 cm from the floor, so prefer a low unit. Shelves and wall lights go beside or above the TV, never overlapping it. Prefer cable management. Wall-mounted/wired items need drilling or an electrician - avoid them for renters. Keep the wall calm: a few well-chosen objects.'};
 function aiPrompt(room){const R=ROOMS[room.type];const lines=[];
-  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd+(isL(x)?' L-SHAPED (back depth '+x.sd+', leg width '+x.cw+(isCorner(x)?', corner':', chaise')+')':''):'-'} | ${x.tags}${room.pal?' | '+x.hex:''}`)}
+  for(const s of R.slots){if(keepsSlot(room,s.k))continue;if(s.on&&!s.on(room,{}))continue;const list=CAT.filter(x=>catHas(s,x)&&inStore(x,room)).filter(x=>!(room.renter&&x.id===71));lines.push(`[${s.k}]`);for(const x of list)lines.push(`${x.id} | ${x.n} | ${x.v} | ${x.p} | ${x.fw&&x.fd?x.fw+'x'+x.fd+(isL(x)?' L-SHAPED (back depth '+x.sd+', leg width '+x.cw+(isCorner(x)?', corner':', chaise')+')':''):'-'} | ${x.tags}${room.pal?' | '+x.hex:''}`)}
   const styles=Object.entries(STYLES).map(([k,v])=>`${k}: ${v.name} — lens ${v.designer}. ${v.idea}`).join('\n');
   const extra={living:`TV: ${room.tv}. Uses: ${[...room.uses].join(', ')}. Sofa type wanted: ${room.sofaType==='corner'?'corner/L-shaped only':room.sofaType==='straight'?'straight only':'any (corner only if it fits comfortably)'}${room.sofaType==='corner'&&room.cornerSide!=='auto'?', corner on the '+room.cornerSide+' side':''}.`,bedroom:`Sleepers: ${room.sleepers}.`,kitchen:`Seats: ${room.seats}. Mode: ${room.mode}.`,bath:`Shower: ${room.shower}. Mode: ${room.mode}.`,office:`Space: ${room.space}. Work: ${room.work}.`,kids:`Age: ${room.age}. Kids: ${room.kids}.`,balcony:`Uses: ${[...room.bUses].join(', ')}. Seats: ${room.bSeats}. Floor: ${room.floor}.`,tvwall:`TV: ${room.tvIn} inch (about ${tvDims(room).w}x${tvDims(room).h} cm), ${room.tvMount==='wall'?'mounted on the wall':'standing on the unit'}. Unit position on the wall: ${room.tvPos}.`}[room.type];
   const slotsList=R.slots.filter(s=>!s.on||s.on(room,{})).map(s=>s.k).join(', ');
-  return `You are a top interior designer. Design a ${R.en} using ONLY the IKEA Israel products listed below (ids). Write every text field in Hebrew.
+  return `You are a top interior designer. Design a ${R.en} using ONLY the products listed below (ids) — they come from IKEA Israel and from Kaza, an Israeli designer-furniture store. Write every text field in Hebrew.
 ${room.type==='tvwall'?`WALL: ${room.W} cm wide, ceiling height ${room.D} cm (front elevation of the TV wall).`:`ROOM: main wall ${room.W} cm; depth ${room.D} cm. Window ${room.winWall==='none'?'none':'on '+room.winWall+' wall, '+room.winW+' cm'}, faces ${DIRS[room.dir]}. Door: ${room.door}.`} Renter: ${room.renter?'yes':'no'}. ${extra}
 Keep from home (do not buy): ${[...room.keep].join(', ')||'nothing'}. Likes: ${room.likes.map(k=>LIKES[k].he).join(', ')||'-'}. Dislikes: ${room.dis.map(k=>DISLIKES[k].he).join(', ')||'-'}.
 Budget per concept: ${room.budget} ILS (sum of prices × quantities).
